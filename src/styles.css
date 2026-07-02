@@ -1399,18 +1399,21 @@ main {
 .appointment-demo-shell {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .appointment-demo-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.72fr);
   gap: 1rem;
   align-items: stretch;
+  min-width: 0;
 }
 
 .appointment-call-panel {
   align-content: start;
   justify-items: stretch;
+  min-width: 0;
   text-align: left;
   background:
     radial-gradient(circle at 50% 28%, rgba(20, 184, 200, 0.22), transparent 28%),
@@ -1461,6 +1464,7 @@ main {
 .appointment-side-panel {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .appointment-steps-card,
@@ -1602,6 +1606,9 @@ main {
 
 .appointment-calendar-card {
   padding: 1rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .appointment-calendar-header {
@@ -1629,15 +1636,18 @@ main {
 }
 
 .appointment-calendar-strip {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(12rem, 1fr);
+  display: flex;
   gap: 0.7rem;
+  max-width: 100%;
   overflow-x: auto;
-  padding-bottom: 0.25rem;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.45rem;
+  scroll-snap-type: x proximity;
+  scrollbar-gutter: stable;
 }
 
 .appointment-day-card {
+  flex: 0 0 clamp(10.5rem, 18vw, 13rem);
   min-height: 12rem;
   display: grid;
   align-content: start;
@@ -1646,6 +1656,7 @@ main {
   border-radius: 8px;
   padding: 0.75rem;
   background: var(--surface);
+  scroll-snap-align: start;
 }
 
 .appointment-day-card header {

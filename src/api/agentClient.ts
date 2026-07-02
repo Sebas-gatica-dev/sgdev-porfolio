@@ -124,6 +124,12 @@ type StreamHandlers = {
   onDone?: (payload: { sessionId: string; live: boolean }) => void
 }
 
+const API_BASE_PATH = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api`
+
+function apiPath(path: string) {
+  return `${API_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 export async function streamAgentResponse(
   payload: {
     message: string
@@ -134,7 +140,7 @@ export async function streamAgentResponse(
   },
   handlers: StreamHandlers,
 ) {
-  const response = await fetch('/api/agent/chat/stream', {
+  const response = await fetch(apiPath('/agent/chat/stream'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -172,7 +178,7 @@ export async function streamAgentResponse(
 }
 
 export async function createVoiceTranscriptionSession(): Promise<VoiceSession> {
-  const response = await fetch('/api/agent/voice/session', {
+  const response = await fetch(apiPath('/agent/voice/session'), {
     method: 'POST',
   })
 
@@ -184,7 +190,7 @@ export async function createVoiceTranscriptionSession(): Promise<VoiceSession> {
 }
 
 export async function createVoiceConversationSession(): Promise<VoiceSession> {
-  const response = await fetch('/api/agent/conversation/session', {
+  const response = await fetch(apiPath('/agent/conversation/session'), {
     method: 'POST',
   })
 
@@ -198,7 +204,7 @@ export async function createVoiceConversationSession(): Promise<VoiceSession> {
 export async function createAppointmentVoiceSession(
   consultationType: AppointmentConsultationType,
 ): Promise<VoiceSession> {
-  const response = await fetch('/api/agent/appointment/session', {
+  const response = await fetch(apiPath('/agent/appointment/session'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -214,7 +220,7 @@ export async function createAppointmentVoiceSession(
 }
 
 export async function summarizePdf(file: File): Promise<DocumentSummaryResponse> {
-  const response = await fetch('/api/agent/document/summary', {
+  const response = await fetch(apiPath('/agent/document/summary'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/pdf',
@@ -238,7 +244,7 @@ export async function getAppointmentSchedule(
     sessionId,
     days: String(days),
   })
-  const response = await fetch(`/api/appointments/demo/schedule?${params}`)
+  const response = await fetch(apiPath(`/appointments/demo/schedule?${params}`))
 
   if (!response.ok) {
     throw new Error(await responseError(response, `No se pudo leer la agenda (${response.status})`))
@@ -255,7 +261,7 @@ export async function getAppointmentActivity(
     sessionId,
     limit: String(limit),
   })
-  const response = await fetch(`/api/appointments/demo/activity?${params}`)
+  const response = await fetch(apiPath(`/appointments/demo/activity?${params}`))
 
   if (!response.ok) {
     throw new Error(await responseError(response, `No se pudo leer la actividad (${response.status})`))
@@ -272,7 +278,7 @@ export async function findAvailableAppointments(payload: {
   preferredTimeFrom?: string
   preferredTimeTo?: string
 }): Promise<AppointmentAvailabilityResponse> {
-  const response = await fetch('/api/appointments/demo/tools/availability', {
+  const response = await fetch(apiPath('/appointments/demo/tools/availability'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -293,7 +299,7 @@ export async function bookAppointment(payload: {
   patientName: string
   startAt: string
 }): Promise<AppointmentMutationResponse> {
-  const response = await fetch('/api/appointments/demo/tools/book', {
+  const response = await fetch(apiPath('/appointments/demo/tools/book'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -312,7 +318,7 @@ export async function rescheduleAppointment(payload: {
   sessionId: string
   startAt: string
 }): Promise<AppointmentMutationResponse> {
-  const response = await fetch('/api/appointments/demo/tools/reschedule', {
+  const response = await fetch(apiPath('/appointments/demo/tools/reschedule'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -328,7 +334,7 @@ export async function rescheduleAppointment(payload: {
 }
 
 export async function getPortfolioHealth(): Promise<PortfolioHealth> {
-  const response = await fetch('/api/portfolio/health')
+  const response = await fetch(apiPath('/portfolio/health'))
 
   if (!response.ok) {
     throw new Error(await responseError(response, `No se pudo leer estado (${response.status})`))
@@ -340,7 +346,7 @@ export async function getPortfolioHealth(): Promise<PortfolioHealth> {
 export async function sendContactMessage(
   payload: ContactMessagePayload,
 ): Promise<ContactMessageResponse> {
-  const response = await fetch('/api/contact/message', {
+  const response = await fetch(apiPath('/contact/message'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

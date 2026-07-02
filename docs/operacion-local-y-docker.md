@@ -120,6 +120,19 @@ Aplicacion via nginx: http://localhost:8080
 Postgres host local: localhost:5433
 ```
 
+Para publicar detras de un gateway bajo `/portfolio`, compilar el frontend con:
+
+```bash
+VITE_BASE_PATH=/portfolio/ docker compose up -d --build
+```
+
+En PowerShell:
+
+```powershell
+$env:VITE_BASE_PATH = "/portfolio/"
+docker compose up -d --build
+```
+
 ## Base de datos
 
 Levantar solo Postgres:

@@ -5,6 +5,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '')
 
   return {
+    base: normalizeBasePath(env.VITE_BASE_PATH || '/'),
     plugins: [react()],
     server: {
       proxy: {
@@ -16,3 +17,13 @@ export default defineConfig(({ mode }) => {
     },
   }
 })
+
+function normalizeBasePath(value: string) {
+  const trimmed = value.trim()
+
+  if (!trimmed || trimmed === '/') {
+    return '/'
+  }
+
+  return `/${trimmed.replace(/^\/+|\/+$/g, '')}/`
+}

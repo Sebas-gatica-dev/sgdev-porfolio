@@ -39,6 +39,7 @@ type Route =
 type Theme = 'light' | 'dark'
 
 const THEME_STORAGE_KEY = 'sg-portfolio-theme'
+const APP_BASE_PATH = normalizeBasePath(import.meta.env.BASE_URL)
 
 const routes: Route[] = [
   '/',
@@ -100,8 +101,10 @@ function App() {
   }, [theme])
 
   useEffect(() => {
-    if (!routes.includes(window.location.pathname as Route)) {
-      window.history.replaceState({}, '', '/')
+    const currentRoute = resolveRoute(window.location.pathname)
+
+    if (routePathFromLocation(window.location.pathname) !== currentRoute) {
+      window.history.replaceState({}, '', withBasePath(currentRoute))
     }
 
     const handlePopState = () => setRoute(resolveRoute(window.location.pathname))
@@ -110,7 +113,7 @@ function App() {
   }, [])
 
   function navigate(path: Route) {
-    window.history.pushState({}, '', path)
+    window.history.pushState({}, '', withBasePath(path))
     setRoute(path)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -239,7 +242,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
         >
           <div className="hero-visual">
             <div className="visual-header" data-atropos-offset="-1">
-              <img src="/favicon.svg" alt="" />
+              <img src={assetPath('favicon.svg')} alt="" />
               <div>
                 <strong>SG AI portfolio</strong>
                 <span>React, WebFlux, OpenAI y workflows auditables.</span>
@@ -698,7 +701,7 @@ function PageLink({
       {...props}
       aria-current={active ? 'page' : undefined}
       className={className}
-      href={href}
+      href={withBasePath(href)}
       onClick={(event) => {
         event.preventDefault()
         onNavigate(href)
@@ -710,7 +713,50 @@ function PageLink({
 }
 
 function resolveRoute(pathname: string): Route {
-  return routes.includes(pathname as Route) ? (pathname as Route) : '/'
+  const routePath = routePathFromLocation(pathname)
+  return routes.includes(routePath as Route) ? (routePath as Route) : '/'
+}
+
+function routePathFromLocation(pathname: string) {
+  const base = APP_BASE_PATH.replace(/\/$/, '')
+
+  if (!base) {
+    return pathname || '/'
+  }
+
+  if (pathname === base) {
+    return '/'
+  }
+
+  if (pathname.startsWith(`${base}/`)) {
+    return pathname.slice(base.length) || '/'
+  }
+
+  return pathname || '/'
+}
+
+function withBasePath(path: Route) {
+  const base = APP_BASE_PATH.replace(/\/$/, '')
+
+  if (!base) {
+    return path
+  }
+
+  return path === '/' ? `${base}/` : `${base}${path}`
+}
+
+function assetPath(path: string) {
+  return `${APP_BASE_PATH}${path.replace(/^\/+/, '')}`
+}
+
+function normalizeBasePath(value: string) {
+  const trimmed = value.trim()
+
+  if (!trimmed || trimmed === '/') {
+    return '/'
+  }
+
+  return `/${trimmed.replace(/^\/+|\/+$/g, '')}/`
 }
 
 function getInitialTheme(): Theme {
