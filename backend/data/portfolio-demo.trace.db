@@ -1,0 +1,56 @@
+2026-07-01 20:19:09.960456-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"
+Syntax error in SQL statement "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"; SQL statement:
+INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (id) DO NOTHING
+ [42000-240]
+2026-07-01 20:19:09.968994-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"
+Syntax error in SQL statement "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"; SQL statement:
+INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (id) DO NOTHING
+ [42000-240]
+2026-07-01 20:19:10.227029-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"
+Syntax error in SQL statement "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"; SQL statement:
+INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (id) DO NOTHING
+ [42000-240]
+2026-07-01 20:19:10.404183-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"
+Syntax error in SQL statement "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"; SQL statement:
+INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (id) DO NOTHING
+ [42000-240]
+2026-07-01 20:20:06.918258-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"
+Syntax error in SQL statement "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"; SQL statement:
+INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (id) DO NOTHING
+ [42000-240]
+2026-07-01 20:20:07.180893-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"
+Syntax error in SQL statement "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"; SQL statement:
+INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (id) DO NOTHING
+ [42000-240]
+2026-07-01 20:20:07.246556-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"
+Syntax error in SQL statement "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"; SQL statement:
+INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (id) DO NOTHING
+ [42000-240]
+2026-07-01 20:47:30.038328-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"
+Syntax error in SQL statement "INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)\000aVALUES (?, ?, ?, ?)\000a[*]ON CONFLICT (id) DO NOTHING\000a"; SQL statement:
+INSERT INTO appointment_doctors (id, consultation_type, display_name, specialty)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (id) DO NOTHING
+ [42000-240]

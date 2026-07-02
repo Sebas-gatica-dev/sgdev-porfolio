@@ -1,0 +1,4 @@
+Code style extension:
+- Prefer modular boundaries and explicit interfaces.
+- Avoid hidden coupling between demos.
+- Keep code comments concise and focused on non-obvious logic.

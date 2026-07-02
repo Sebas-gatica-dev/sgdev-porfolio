@@ -1,0 +1,52 @@
+{
+  "name": "sg-ai-agent-portfolio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:web": "vite --host 0.0.0.0 --port 5173",
+    "dev:api": "node scripts/mvnw.mjs spring-boot:run",
+    "ops": "node scripts/portfolio.mjs",
+    "ops:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/portfolio.ps1",
+    "ops:linux": "bash scripts/portfolio.sh",
+    "status": "node scripts/portfolio.mjs status",
+    "env:check": "node scripts/portfolio.mjs env",
+    "local:up": "node scripts/portfolio.mjs up",
+    "local:down": "node scripts/portfolio.mjs down",
+    "local:restart": "node scripts/portfolio.mjs restart",
+    "local:restart:api": "node scripts/portfolio.mjs restart-api",
+    "local:restart:web": "node scripts/portfolio.mjs restart-web",
+    "logs": "node scripts/portfolio.mjs logs",
+    "logs:api": "node scripts/portfolio.mjs logs-api",
+    "logs:web": "node scripts/portfolio.mjs logs-web",
+    "db:up": "node scripts/portfolio.mjs db-up",
+    "db:restart": "node scripts/portfolio.mjs db-restart",
+    "docker:up": "node scripts/portfolio.mjs docker-up",
+    "docker:down": "node scripts/portfolio.mjs docker-down",
+    "docker:restart": "node scripts/portfolio.mjs docker-restart",
+    "docker:logs": "node scripts/portfolio.mjs docker-logs",
+    "docker:logs:api": "node scripts/portfolio.mjs docker-logs-api",
+    "docker:logs:web": "node scripts/portfolio.mjs docker-logs-web",
+    "docker:logs:db": "node scripts/portfolio.mjs docker-logs-db",
+    "build": "tsc -b && vite build",
+    "build:api": "node scripts/mvnw.mjs -DskipTests package",
+    "build:all": "npm run build && npm run build:api",
+    "preview": "vite preview --host 0.0.0.0 --port 4173"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "atropos": "^2.0.2",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^6.0.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "concurrently": "^9.1.0",
+    "playwright-core": "^1.59.1",
+    "typescript": "^5.7.2"
+  }
+}

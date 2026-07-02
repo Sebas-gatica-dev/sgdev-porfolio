@@ -1,0 +1,12 @@
+node_modules
+dist
+target
+*.tsbuildinfo
+*.log
+artifacts
+.run
+.logs
+.env
+.env.local
+npm-debug.log*
+.DS_Store

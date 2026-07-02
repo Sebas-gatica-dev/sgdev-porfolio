@@ -1,0 +1,5 @@
+Business context extension:
+- Project: Sebastian Gatica professional portfolio.
+- Goal: Let visitors experience interactive AI demos and understand Sebastian's applied AI/full-stack skills quickly.
+- Priority: Demo-first communication, concise profile context, strict modularity, and prompt externalization.
+- Important boundary: Do not identify this portfolio as any external company, separate product, or unrelated project.
