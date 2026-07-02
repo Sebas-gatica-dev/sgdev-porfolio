@@ -1,4 +1,4 @@
-import { Download, FileText, LoaderCircle, Trash2, Upload } from 'lucide-react'
+import { CheckCircle2, Download, FileText, LoaderCircle, Trash2, Upload } from 'lucide-react'
 import { type ChangeEvent, type DragEvent, useRef, useState } from 'react'
 import { summarizePdf, type DocumentSummaryResponse } from '../api/agentClient'
 
@@ -87,6 +87,8 @@ export function DocumentSummaryDemo() {
     URL.revokeObjectURL(url)
   }
 
+  const summarySections = summary ? parseSummarySections(summary.summary) : []
+
   return (
     <div className="document-demo-grid">
       <article
@@ -167,7 +169,31 @@ export function DocumentSummaryDemo() {
 
         {summary && (
           <>
-            <pre>{summary.summary}</pre>
+            <div className="document-summary-result">
+              {summarySections.map((section, sectionIndex) => (
+                <section className="document-summary-card" key={`${section.title}-${sectionIndex}`}>
+                  <div className="document-summary-card-header">
+                    <span>{String(sectionIndex + 1).padStart(2, '0')}</span>
+                    <h4>{section.title}</h4>
+                  </div>
+
+                  {section.paragraphs.map((paragraph, paragraphIndex) => (
+                    <p key={`${section.title}-paragraph-${paragraphIndex}`}>{paragraph}</p>
+                  ))}
+
+                  {section.items.length > 0 && (
+                    <ul>
+                      {section.items.map((item, itemIndex) => (
+                        <li key={`${section.title}-item-${itemIndex}`}>
+                          <CheckCircle2 size={15} />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ))}
+            </div>
             <div className="document-summary-meta">
               <span>{formatBytes(summary.sizeBytes)}</span>
               <span>Caduca al terminar</span>
@@ -188,6 +214,73 @@ export function DocumentSummaryDemo() {
       </article>
     </div>
   )
+}
+
+type SummarySection = {
+  title: string
+  paragraphs: string[]
+  items: string[]
+}
+
+function parseSummarySections(value: string): SummarySection[] {
+  const lines = value
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const sections: SummarySection[] = []
+
+  function ensureSection() {
+    if (sections.length === 0) {
+      sections.push({ title: 'Resultado', paragraphs: [], items: [] })
+    }
+    return sections[sections.length - 1]
+  }
+
+  for (const line of lines) {
+    const markdownHeading = line.match(/^#{1,4}\s+(.+)$/)
+    if (markdownHeading) {
+      sections.push({ title: cleanHeading(markdownHeading[1]), paragraphs: [], items: [] })
+      continue
+    }
+
+    const numberedHeading = line.match(/^\d+[.)]\s+(.+)$/)
+    if (numberedHeading) {
+      sections.push({ title: cleanHeading(numberedHeading[1]), paragraphs: [], items: [] })
+      continue
+    }
+
+    const noteMatch = line.match(/^nota:\s*(.*)$/i)
+    if (noteMatch) {
+      sections.push({
+        title: 'Nota',
+        paragraphs: noteMatch[1] ? [noteMatch[1]] : [],
+        items: [],
+      })
+      continue
+    }
+
+    const colonHeading = line.match(/^([^:]{3,80}):$/)
+    if (colonHeading) {
+      sections.push({ title: cleanHeading(colonHeading[1]), paragraphs: [], items: [] })
+      continue
+    }
+
+    const bullet = line.match(/^[-*\u2022]\s+(.+)$/)
+    if (bullet) {
+      ensureSection().items.push(bullet[1])
+      continue
+    }
+
+    ensureSection().paragraphs.push(line)
+  }
+
+  return sections.length > 0 ? sections : [{ title: 'Resultado', paragraphs: [value], items: [] }]
+}
+
+function cleanHeading(value: string) {
+  return value.replace(/[:.]\s*$/, '').trim() || 'Resultado'
 }
 
 function formatBytes(bytes: number) {

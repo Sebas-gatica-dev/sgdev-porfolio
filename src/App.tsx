@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   ArrowRight,
   BrainCircuit,
   Braces,
@@ -160,9 +161,11 @@ function App() {
       <main className="page-shell" id="top">
         {route === '/' && <HomePage onNavigate={navigate} />}
         {route === '/demos' && <DemosPage onNavigate={navigate} />}
-        {(route === '/demos/chat' || route === '/demo') && <AgentChatDemoPage title={pageTitle} />}
-        {route === '/demos/turnos' && <MedicalAppointmentDemoPage />}
-        {route === '/demos/documentos' && <DocumentDemoPage />}
+        {(route === '/demos/chat' || route === '/demo') && (
+          <AgentChatDemoPage title={pageTitle} onNavigate={navigate} />
+        )}
+        {route === '/demos/turnos' && <MedicalAppointmentDemoPage onNavigate={navigate} />}
+        {route === '/demos/documentos' && <DocumentDemoPage onNavigate={navigate} />}
         {route === '/contacto' && <ContactPage />}
       </main>
 
@@ -511,10 +514,26 @@ function DemoPlaybookPanel({ playbookId }: { playbookId: keyof typeof demoPlaybo
   )
 }
 
-function AgentChatDemoPage({ title }: { title: string }) {
+function DemoBackLink({ onNavigate }: { onNavigate: (path: Route) => void }) {
+  return (
+    <PageLink className="demo-back-link" href="/demos" onNavigate={onNavigate}>
+      <ArrowLeft size={17} />
+      Volver a demos
+    </PageLink>
+  )
+}
+
+function AgentChatDemoPage({
+  title,
+  onNavigate,
+}: {
+  title: string
+  onNavigate: (path: Route) => void
+}) {
   return (
     <>
       <section className="page-intro">
+        <DemoBackLink onNavigate={onNavigate} />
         <div className="section-kicker">
           <MessageSquareText size={18} />
           {title}
@@ -530,9 +549,10 @@ function AgentChatDemoPage({ title }: { title: string }) {
   )
 }
 
-function DocumentDemoPage() {
+function DocumentDemoPage({ onNavigate }: { onNavigate: (path: Route) => void }) {
   return (
     <section className="section demo-detail-page">
+      <DemoBackLink onNavigate={onNavigate} />
       <SectionHeading
         kicker="Demo documentos"
         title="Document intelligence con tratamiento efimero."
@@ -545,9 +565,10 @@ function DocumentDemoPage() {
   )
 }
 
-function MedicalAppointmentDemoPage() {
+function MedicalAppointmentDemoPage({ onNavigate }: { onNavigate: (path: Route) => void }) {
   return (
     <section className="section demo-detail-page">
+      <DemoBackLink onNavigate={onNavigate} />
       <SectionHeading
         kicker="Demo turnos"
         title="Workflow de turnos medicos con tools reales."

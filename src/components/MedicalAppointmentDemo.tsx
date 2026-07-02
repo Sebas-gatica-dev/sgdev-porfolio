@@ -576,74 +576,72 @@ export function MedicalAppointmentDemo() {
           </div>
         </article>
 
-        <aside className="appointment-side-panel">
-          <section className="appointment-steps-card">
-            <div className="appointment-panel-heading">
-              <CheckCircle2 size={18} />
-              <strong>Flujo guiado</strong>
-            </div>
-            <ol>
-              <li data-done="true">
-                <span>1</span>
-                <div>
-                  <strong>Especialidad elegida</strong>
-                  <p>{selectedConsultation.title}</p>
-                </div>
-              </li>
-              <li data-done={callActive || appointmentBooked}>
-                <span>2</span>
-                <div>
-                  <strong>Llamada iniciada</strong>
-                  <p>El agente toma la disponibilidad del paciente.</p>
-                </div>
-              </li>
-              <li data-done={availabilityChecked || appointmentBooked}>
-                <span>3</span>
-                <div>
-                  <strong>Agenda consultada</strong>
-                  <p>Busca turnos reales antes de responder.</p>
-                </div>
-              </li>
-              <li data-done={appointmentBooked}>
-                <span>4</span>
-                <div>
-                  <strong>Turno persistido</strong>
-                  <p>La reserva aparece en el calendario en tiempo real.</p>
-                </div>
-              </li>
-              <li data-done={appointmentRescheduled}>
-                <span>5</span>
-                <div>
-                  <strong>Reprogramacion</strong>
-                  <p>Si cambia de opinion, actualiza el mismo turno.</p>
-                </div>
-              </li>
-            </ol>
-          </section>
-
-          <section className="appointment-activity-card">
-            <div className="appointment-panel-heading">
-              <Database size={18} />
-              <strong>Actividad en base de datos</strong>
-            </div>
-            {activity.length === 0 ? (
-              <p className="appointment-empty-copy">
-                Todavia no hubo operaciones en esta llamada. Cuando el agente consulte o guarde,
-                apareceran aca.
-              </p>
-            ) : (
-              <div className="appointment-activity-list">
-                {activity.map((item) => (
-                  <article key={`${item.createdAt}-${item.action}-${item.detail}`}>
-                    <span>{item.action}</span>
-                    <strong>{item.detail}</strong>
-                    <time>{formatDateTime(item.createdAt)}</time>
-                  </article>
-                ))}
+        <section className="appointment-steps-card">
+          <div className="appointment-panel-heading">
+            <CheckCircle2 size={18} />
+            <strong>Flujo guiado</strong>
+          </div>
+          <ol>
+            <li data-done="true">
+              <span>1</span>
+              <div>
+                <strong>Especialidad elegida</strong>
+                <p>{selectedConsultation.title}</p>
               </div>
-            )}
-          </section>
-        </aside>
+            </li>
+            <li data-done={callActive || appointmentBooked}>
+              <span>2</span>
+              <div>
+                <strong>Llamada iniciada</strong>
+                <p>El agente toma la disponibilidad del paciente.</p>
+              </div>
+            </li>
+            <li data-done={availabilityChecked || appointmentBooked}>
+              <span>3</span>
+              <div>
+                <strong>Agenda consultada</strong>
+                <p>Busca turnos reales antes de responder.</p>
+              </div>
+            </li>
+            <li data-done={appointmentBooked}>
+              <span>4</span>
+              <div>
+                <strong>Turno persistido</strong>
+                <p>La reserva aparece en el calendario en tiempo real.</p>
+              </div>
+            </li>
+            <li data-done={appointmentRescheduled}>
+              <span>5</span>
+              <div>
+                <strong>Reprogramacion</strong>
+                <p>Si cambia de opinion, actualiza el mismo turno.</p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section className="appointment-activity-card">
+          <div className="appointment-panel-heading">
+            <Database size={18} />
+            <strong>Actividad en base de datos</strong>
+          </div>
+          {activity.length === 0 ? (
+            <p className="appointment-empty-copy">
+              Todavia no hubo operaciones en esta llamada. Cuando el agente consulte o guarde,
+              apareceran aca.
+            </p>
+          ) : (
+            <div className="appointment-activity-list">
+              {activity.map((item) => (
+                <article key={`${item.createdAt}-${item.action}-${item.detail}`}>
+                  <span>{item.action}</span>
+                  <strong>{item.detail}</strong>
+                  <time>{formatDateTime(item.createdAt)}</time>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       <section className="appointment-calendar-card">
