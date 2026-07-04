@@ -10,6 +10,16 @@ export type AgentTrace = {
   status: 'running' | 'connected' | 'fallback' | 'done'
 }
 
+export type ChatRuntime = 'openai' | 'free'
+
+export type FreeModelOffer = {
+  enabled: boolean
+  runtime: ChatRuntime
+  model: string
+  title: string
+  message: string
+}
+
 export type VoiceSession = {
   clientSecret: string
   expiresAt: number
@@ -120,6 +130,7 @@ type StreamHandlers = {
   onSession?: (sessionId: string) => void
   onAgent?: (agent: AgentRoute) => void
   onTrace?: (trace: AgentTrace) => void
+  onFreeModelOffer?: (offer: FreeModelOffer) => void
   onChunk?: (text: string) => void
   onDone?: (payload: { sessionId: string; live: boolean }) => void
 }
@@ -135,6 +146,7 @@ export async function streamAgentResponse(
     message: string
     sessionId?: string | null
     agentId?: string
+    runtime?: ChatRuntime
     extensions?: string[]
     dynamicContext?: DynamicContextRequest[]
   },
@@ -397,6 +409,10 @@ function dispatchSseEvent(block: string, handlers: StreamHandlers) {
 
   if (event === 'trace') {
     handlers.onTrace?.(payload)
+  }
+
+  if (event === 'free_model_offer') {
+    handlers.onFreeModelOffer?.(payload)
   }
 
   if (event === 'chunk') {

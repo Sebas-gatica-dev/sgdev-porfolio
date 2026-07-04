@@ -3,6 +3,8 @@ dist
 target
 *.tsbuildinfo
 *.log
+*.pyc
+__pycache__/
 artifacts
 .run
 .logs

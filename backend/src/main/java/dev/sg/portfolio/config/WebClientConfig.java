@@ -26,4 +26,15 @@ public class WebClientConfig {
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
+
+    @Bean
+    WebClient freeModelWebClient(FreeModelProperties properties) {
+        String baseUrl = properties.baseUrl() == null || properties.baseUrl().isBlank()
+                ? "http://localhost:8795"
+                : properties.baseUrl();
+        return WebClient.builder()
+                .baseUrl(baseUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+    }
 }

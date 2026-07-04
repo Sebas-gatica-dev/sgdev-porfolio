@@ -6,6 +6,7 @@ import dev.sg.portfolio.domain.AvailabilitySearchRequest;
 import dev.sg.portfolio.domain.BookAppointmentRequest;
 import dev.sg.portfolio.domain.ChatStreamRequest;
 import dev.sg.portfolio.domain.DoneEvent;
+import dev.sg.portfolio.domain.FreeModelOffer;
 import dev.sg.portfolio.domain.PromptLimitStatus;
 import dev.sg.portfolio.domain.RescheduleAppointmentRequest;
 import dev.sg.portfolio.domain.SessionEvent;
@@ -15,6 +16,7 @@ import dev.sg.portfolio.service.AgentRouter;
 import dev.sg.portfolio.service.AppointmentDemoService;
 import dev.sg.portfolio.service.ClientIpResolver;
 import dev.sg.portfolio.service.DynamicContextService;
+import dev.sg.portfolio.service.FreeModelClient;
 import dev.sg.portfolio.service.IpPromptLimitService;
 import dev.sg.portfolio.service.LocalAgentSimulator;
 import dev.sg.portfolio.service.OpenAiResponsesClient;
@@ -50,6 +52,7 @@ import reactor.core.publisher.Mono;
 public class AgentController {
 
     private final OpenAiResponsesClient openAi;
+    private final FreeModelClient freeModel;
     private final OpenAiRealtimeClient realtime;
     private final LocalAgentSimulator simulator;
     private final AgentRouter agentRouter;
@@ -62,6 +65,7 @@ public class AgentController {
 
     public AgentController(
             OpenAiResponsesClient openAi,
+            FreeModelClient freeModel,
             OpenAiRealtimeClient realtime,
             LocalAgentSimulator simulator,
             AgentRouter agentRouter,
@@ -73,6 +77,7 @@ public class AgentController {
             AppointmentDemoService appointmentDemoService
     ) {
         this.openAi = openAi;
+        this.freeModel = freeModel;
         this.realtime = realtime;
         this.simulator = simulator;
         this.agentRouter = agentRouter;
@@ -90,6 +95,8 @@ public class AgentController {
                 "ok", true,
                 "mode", openAi.configured() ? "portfolio-runtime-live" : "portfolio-runtime-local",
                 "openaiConfigured", openAi.configured(),
+                "freeModelConfigured", freeModel.configured(),
+                "freeModelName", freeModel.model(),
                 "voiceConfigured", realtime.configured(),
                 "promptLimitEnabled", promptLimitService.enabled(),
                 "promptLimitMaxPrompts", promptLimitService.maxPrompts(),
@@ -126,13 +133,16 @@ public class AgentController {
         String sessionId = StringUtils.hasText(request.sessionId())
                 ? request.sessionId()
                 : UUID.randomUUID().toString();
-        PromptLimitStatus promptLimit = promptLimitService.reservePrompt(clientIpResolver.resolve(serverRequest));
-        if (!promptLimit.allowed()) {
+        boolean freeRuntime = "free".equals(normalizeRuntime(request.runtime()));
+        PromptLimitStatus promptLimit = freeRuntime
+                ? PromptLimitStatus.disabled(promptLimitService.maxPrompts())
+                : promptLimitService.reservePrompt(clientIpResolver.resolve(serverRequest));
+        if (!freeRuntime && !promptLimit.allowed()) {
             return promptLimitExceeded(sessionId, promptLimit);
         }
 
         var route = agentRouter.resolve(message, request.agentId());
-        AtomicBoolean live = new AtomicBoolean(openAi.configured());
+        AtomicBoolean live = new AtomicBoolean(!freeRuntime && openAi.configured());
 
         return dynamicContextService.collect(request.dynamicContext())
                 .flatMapMany(contextItems -> {
@@ -143,9 +153,7 @@ public class AgentController {
                     );
                     Flux<ServerSentEvent<Object>> header = runtimeHeader(sessionId, route, promptLimit, promptPlan);
 
-                    Flux<ServerSentEvent<Object>> body = openAi.configured()
-                            ? openAiBody(message, promptPlan, live)
-                            : simulator.stream(message);
+                    Flux<ServerSentEvent<Object>> body = chatBody(message, promptPlan, live, freeRuntime);
 
                     return Flux.concat(
                             header,
@@ -385,6 +393,51 @@ public class AgentController {
         return Flux.concat(openAiTrace, chunks);
     }
 
+    private Flux<ServerSentEvent<Object>> chatBody(
+            String message,
+            PromptPlan promptPlan,
+            AtomicBoolean live,
+            boolean freeRuntime
+    ) {
+        if (freeRuntime) {
+            return freeModelBody(message, promptPlan, live);
+        }
+        return openAi.configured()
+                ? openAiBody(message, promptPlan, live)
+                : simulator.stream(message);
+    }
+
+    private Flux<ServerSentEvent<Object>> freeModelBody(
+            String message,
+            PromptPlan promptPlan,
+            AtomicBoolean live
+    ) {
+        live.set(false);
+        Flux<ServerSentEvent<Object>> freeTrace = Flux.just(
+                event("trace", new AgentTrace(
+                        "Modelo gratuito local",
+                        freeModel.configured()
+                                ? "Request enviado a FastAPI/Ollama con " + freeModel.model() + "."
+                                : "El cliente local no esta configurado; se usa fallback demo.",
+                        "fallback"
+                ))
+        );
+
+        Flux<ServerSentEvent<Object>> chunks = freeModel.configured()
+                ? freeModel.streamText(message, promptPlan.instructions())
+                        .map(text -> event("chunk", new TextChunk(text)))
+                        .onErrorResume(error -> simulator.stream(
+                                message,
+                                "el modelo gratuito local no pudo responder (" + error.getMessage() + ")."
+                        ))
+                : simulator.stream(
+                        message,
+                        "el modelo gratuito local no esta configurado en PORTFOLIO_FREE_MODEL_BASE_URL."
+                );
+
+        return Flux.concat(freeTrace, chunks);
+    }
+
     private List<String> safeList(List<String> values) {
         return values == null ? List.of() : values;
     }
@@ -418,14 +471,30 @@ public class AgentController {
                         "La IP ya uso " + promptLimit.used() + " de " + promptLimit.maxPrompts() + " creditos.",
                         "fallback"
                 )),
+                event("free_model_offer", freeModelOffer()),
                 event("chunk", new TextChunk(
                         "Agotaste tu demo gratuita para esta IP. Cada IP tiene "
                                 + promptLimit.maxPrompts()
-                                + " creditos: chat usa 1 y voz usa 5 por minuto. Si estas probando en local, pon "
-                                + "PORTFOLIO_IP_PROMPT_LIMIT_ENABLED=false."
+                                + " creditos: chat usa 1 y voz usa 5 por minuto. Podes seguir con el modelo "
+                                + "gratuito local sin consumir OpenAI."
                 )),
                 event("done", new DoneEvent(sessionId, false))
         );
+    }
+
+    private FreeModelOffer freeModelOffer() {
+        return new FreeModelOffer(
+                freeModel.configured(),
+                "free",
+                freeModel.model(),
+                "Demo gratuita agotada",
+                "Podes continuar con el modelo gratuito local. Usa " + freeModel.model()
+                        + " en el VPS y no consume creditos de OpenAI."
+        );
+    }
+
+    private String normalizeRuntime(String runtime) {
+        return runtime == null ? "openai" : runtime.trim().toLowerCase();
     }
 
     private ResponseEntity<Object> promptLimitResponse(PromptLimitStatus promptLimit) {

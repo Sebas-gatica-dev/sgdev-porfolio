@@ -4,6 +4,7 @@ import {
   Bot,
   CheckCircle2,
   Clipboard,
+  Cpu,
   LoaderCircle,
   Mic,
   MicOff,
@@ -12,10 +13,13 @@ import {
   Send,
   Sparkles,
   TerminalSquare,
+  X,
 } from 'lucide-react'
 import {
+  ChatRuntime,
   createVoiceConversationSession,
   createVoiceTranscriptionSession,
+  FreeModelOffer,
   getPortfolioHealth,
   streamAgentResponse,
 } from '../api/agentClient'
@@ -79,6 +83,8 @@ export function AgentConsole() {
   const [conversationModel, setConversationModel] = useState<string | null>(null)
   const [conversationError, setConversationError] = useState<string | null>(null)
   const [voiceConfigured, setVoiceConfigured] = useState<boolean | null>(null)
+  const [freeModelOffer, setFreeModelOffer] = useState<FreeModelOffer | null>(null)
+  const [pendingFreePrompt, setPendingFreePrompt] = useState<string | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
@@ -129,11 +135,20 @@ export function AgentConsole() {
     ]
   }
 
-  async function handleSubmit(event?: FormEvent, overrideInput?: string) {
+  async function handleSubmit(
+    event?: FormEvent,
+    overrideInput?: string,
+    runtime: ChatRuntime = 'openai',
+  ) {
     event?.preventDefault()
     const clean = (overrideInput ?? input).trim()
     if (!clean || isStreaming) {
       return
+    }
+
+    if (runtime === 'free') {
+      setFreeModelOffer(null)
+      setPendingFreePrompt(null)
     }
 
     cleanupVoiceConnection()
@@ -157,11 +172,16 @@ export function AgentConsole() {
           message: clean,
           sessionId,
           agentId: 'coordinator',
+          runtime,
           extensions: ['business-context'],
           dynamicContext: dynamicContextPayload(),
         },
         {
           onSession: setSessionId,
+          onFreeModelOffer: (offer) => {
+            setFreeModelOffer(offer)
+            setPendingFreePrompt(clean)
+          },
           onChunk: (text) => {
             setMessages((current) =>
               current.map((message) =>
@@ -193,6 +213,14 @@ export function AgentConsole() {
     }
 
     void handleSubmit(undefined, prompt)
+  }
+
+  function handleUseFreeModel() {
+    if (!pendingFreePrompt || isStreaming) {
+      return
+    }
+
+    void handleSubmit(undefined, pendingFreePrompt, 'free')
   }
 
   function handleInputKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -768,6 +796,36 @@ export function AgentConsole() {
             {conversationError && <p>{conversationError}</p>}
             <audio ref={remoteAudioRef} autoPlay playsInline className="conversation-audio" />
           </div>
+
+          {freeModelOffer && (
+            <div className="free-model-tooltip" role="status">
+              <div>
+                <Cpu size={18} />
+                <span>
+                  <strong>{freeModelOffer.title}</strong>
+                  {freeModelOffer.enabled
+                    ? freeModelOffer.message
+                    : 'El modelo gratuito local todavia no esta activo en esta instancia.'}
+                </span>
+              </div>
+              <div className="free-model-actions">
+                <button
+                  type="button"
+                  onClick={handleUseFreeModel}
+                  disabled={!freeModelOffer.enabled || !pendingFreePrompt || isStreaming}
+                >
+                  Usar modelo gratuito
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFreeModelOffer(null)}
+                  aria-label="Cerrar aviso de modelo gratuito"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
 
           <form className="console-form" onSubmit={handleSubmit}>
             <textarea

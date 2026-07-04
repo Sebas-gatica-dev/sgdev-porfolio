@@ -2,6 +2,7 @@ package dev.sg.portfolio;
 
 import dev.sg.portfolio.config.OpenAiProperties;
 import dev.sg.portfolio.config.ContactMailProperties;
+import dev.sg.portfolio.config.FreeModelProperties;
 import dev.sg.portfolio.config.IpPromptLimitProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -11,7 +12,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @EnableConfigurationProperties({
         OpenAiProperties.class,
         IpPromptLimitProperties.class,
-        ContactMailProperties.class
+        ContactMailProperties.class,
+        FreeModelProperties.class
 })
 public class PortfolioApiApplication {
 

@@ -17,6 +17,56 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: portfolio-ollama
+    restart: unless-stopped
+    volumes:
+      - portfolio_ollama_data:/root/.ollama
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: portfolio-ollama-pull
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      PORTFOLIO_FREE_MODEL_NAME: ${PORTFOLIO_FREE_MODEL_NAME:-qwen3:0.6b}
+    entrypoint: ["/bin/sh"]
+    command:
+      - -lc
+      - |
+        until ollama list >/dev/null 2>&1; do sleep 2; done
+        ollama pull "$$PORTFOLIO_FREE_MODEL_NAME"
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  free-model:
+    build:
+      context: ./free-model-api
+    container_name: portfolio-free-model
+    restart: unless-stopped
+    environment:
+      PORT: 8795
+      FREE_MODEL_OLLAMA_URL: http://ollama:11434
+      FREE_MODEL_MODEL: ${PORTFOLIO_FREE_MODEL_NAME:-qwen3:0.6b}
+      FREE_MODEL_NUM_CTX: ${PORTFOLIO_FREE_MODEL_NUM_CTX:-2048}
+      FREE_MODEL_MAX_TOKENS: ${PORTFOLIO_FREE_MODEL_MAX_TOKENS:-420}
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    expose:
+      - "8795"
+
   backend:
     build:
       context: .
@@ -33,9 +83,14 @@ services:
       PORTFOLIO_DB_PASSWORD: ${POSTGRES_PASSWORD:-portfolio_local}
       PORTFOLIO_CORS_ALLOWED_ORIGINS: ${PORTFOLIO_CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
       PORTFOLIO_CORS_ALLOWED_ORIGIN_PATTERNS: ${PORTFOLIO_CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost:*,http://127.0.0.1:*}
+      PORTFOLIO_FREE_MODEL_ENABLED: ${PORTFOLIO_FREE_MODEL_ENABLED:-true}
+      PORTFOLIO_FREE_MODEL_BASE_URL: http://free-model:8795
+      PORTFOLIO_FREE_MODEL_NAME: ${PORTFOLIO_FREE_MODEL_NAME:-qwen3:0.6b}
     depends_on:
       db:
         condition: service_healthy
+      free-model:
+        condition: service_started
     expose:
       - "8787"
 
@@ -64,3 +119,4 @@ services:
 
 volumes:
   portfolio_postgres_data:
+  portfolio_ollama_data:

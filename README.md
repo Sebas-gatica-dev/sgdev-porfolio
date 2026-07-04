@@ -12,6 +12,7 @@ Portfolio de Sebastian Gatica para presentar trabajo freelance en aplicaciones J
 - Modo conversacion por voz con respuesta hablada usando Realtime.
 - Demo de reserva medica con herramientas, agenda viva y persistencia PostgreSQL.
 - Limite de creditos por IP con persistencia JDBC: 20 creditos, chat 1, voz 5 por minuto.
+- Modelo gratuito local con FastAPI + Ollama + Qwen3 0.6B para continuar cuando se agota el cupo por IP.
 - Modo demo local si no existe `OPENAI_API_KEY`.
 - Dockerfile listo para deployar la app completa.
 
@@ -41,6 +42,11 @@ PORTFOLIO_IP_PROMPT_LIMIT_MAX_PROMPTS=20
 PORTFOLIO_IP_PROMPT_LIMIT_CHAT_COST=1
 PORTFOLIO_IP_PROMPT_LIMIT_VOICE_MINUTE_COST=5
 PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=60
+PORTFOLIO_FREE_MODEL_ENABLED=true
+PORTFOLIO_FREE_MODEL_BASE_URL=http://localhost:8795
+PORTFOLIO_FREE_MODEL_NAME=qwen3:0.6b
+PORTFOLIO_FREE_MODEL_NUM_CTX=2048
+PORTFOLIO_FREE_MODEL_MAX_TOKENS=420
 PORTFOLIO_DB_URL=jdbc:postgresql://localhost:5432/sg_medical_appointments_demo
 PORTFOLIO_DB_DRIVER=org.postgresql.Driver
 PORTFOLIO_DB_USER=postgres
@@ -51,11 +57,55 @@ El backend usa Spring WebFlux para llamar `POST https://api.openai.com/v1/respon
 Para voz, el backend genera un `client_secret` efimero con `POST /v1/realtime/client_secrets`
 y el navegador abre WebRTC contra la Realtime API sin exponer `OPENAI_API_KEY`.
 Cada sesion de voz queda limitada a 60 segundos y consume 5 creditos de demo por IP.
-Cuando una IP agota sus 20 creditos, el backend responde 429 con el mensaje de demo agotada.
+Cuando una IP agota sus 20 creditos, el chat muestra un aviso para seguir con el modelo
+gratuito local sin consumir OpenAI.
 
 Si al activar voz aparece un 403, el backend ya esta funcionando pero OpenAI rechazo la sesion:
 normalmente falta billing/permisos de Realtime en la API key o acceso al modelo configurado en
 `OPENAI_VOICE_MODEL`.
+
+## Modelo gratuito local
+
+El modo gratuito esta pensado para VPS chicos. La app nueva vive en:
+
+```text
+free-model-api/
+```
+
+Es un servicio FastAPI que llama a Ollama y transmite chunks SSE al backend Spring.
+El modelo default es `qwen3:0.6b`, porque su quantization Q4 ocupa alrededor de 523 MB
+y mantiene mejor dialogo/instrucciones que opciones ultra pequenas como Gemma 3 270M.
+
+En Docker, `docker-compose.yml` levanta:
+
+- `ollama`: runtime local del modelo.
+- `ollama-pull`: descarga `PORTFOLIO_FREE_MODEL_NAME`.
+- `free-model`: FastAPI en `http://free-model:8795`.
+- `backend`: usa `PORTFOLIO_FREE_MODEL_BASE_URL=http://free-model:8795`.
+
+Uso local fuera de Docker:
+
+```bash
+ollama pull qwen3:0.6b
+cd free-model-api
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8795
+```
+
+Luego correr el backend con:
+
+```bash
+PORTFOLIO_FREE_MODEL_ENABLED=true
+PORTFOLIO_FREE_MODEL_BASE_URL=http://localhost:8795
+PORTFOLIO_FREE_MODEL_NAME=qwen3:0.6b
+```
+
+Flujo en la UI:
+
+1. El usuario consume sus creditos por IP con OpenAI.
+2. El backend emite el evento SSE `free_model_offer`.
+3. El chat muestra un tooltip para usar el modelo gratuito.
+4. Si el usuario acepta, el mismo prompt se reintenta con `runtime: "free"`.
 
 ## Runtime ADK-aligned y prompt modular
 
