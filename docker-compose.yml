@@ -64,6 +64,8 @@ services:
         condition: service_healthy
       ollama-pull:
         condition: service_completed_successfully
+    ports:
+      - "${FREE_MODEL_HTTP_PORT:-8795}:8795"
     expose:
       - "8795"
 

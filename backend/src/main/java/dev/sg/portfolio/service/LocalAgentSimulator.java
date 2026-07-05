@@ -17,6 +17,21 @@ public class LocalAgentSimulator {
     }
 
     public Flux<ServerSentEvent<Object>> stream(String message, String fallbackReason) {
+        return streamFallback(fallbackReason, buildAnswer(message, fallbackReason));
+    }
+
+    public Flux<ServerSentEvent<Object>> streamFreeModelFallback(
+            String message,
+            String model,
+            String fallbackReason
+    ) {
+        return streamFallback(fallbackReason, buildFreeModelAnswer(message, model, fallbackReason));
+    }
+
+    private Flux<ServerSentEvent<Object>> streamFallback(
+            String fallbackReason,
+            String answer
+    ) {
         List<ServerSentEvent<Object>> events = new ArrayList<>();
         events.add(event("trace", new AgentTrace(
                 "Local simulator",
@@ -29,7 +44,7 @@ public class LocalAgentSimulator {
                 "done"
         )));
 
-        for (String chunk : chunk(buildAnswer(message, fallbackReason), 150)) {
+        for (String chunk : chunk(answer, 150)) {
             events.add(event("chunk", new TextChunk(chunk)));
         }
 
@@ -46,6 +61,19 @@ public class LocalAgentSimulator {
                 + "Para no cortar la experiencia, el backend activo una respuesta local de respaldo. "
                 + "Cuando la conexion con OpenAI complete correctamente, este mismo chat responde con el modelo real por streaming. "
                 + "Input recibido: \"" + input + "\".";
+    }
+
+    private String buildFreeModelAnswer(String message, String model, String fallbackReason) {
+        String input = message == null || message.isBlank()
+                ? "Quiero ver como pensas una solucion."
+                : message;
+        String modelName = model == null || model.isBlank() ? "Qwen" : model;
+
+        return "Modo Qwen local: el runtime seleccionado es Qwen (" + modelName + "), "
+                + "pero esta respuesta salio del simulador local porque el servicio Qwen no pudo completarse. "
+                + "Motivo: " + fallbackReason + " "
+                + "Si me preguntas quien soy en este modo, debo decir que estoy usando el runtime Qwen del portfolio, "
+                + "no OpenAI. Input recibido: \"" + input + "\".";
     }
 
     private List<String> chunk(String value, int size) {

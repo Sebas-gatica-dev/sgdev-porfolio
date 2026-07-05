@@ -20,6 +20,14 @@ export type FreeModelOffer = {
   message: string
 }
 
+export type PromptLimitStatus = {
+  enabled: boolean
+  allowed: boolean
+  used: number
+  remaining: number
+  maxPrompts: number
+}
+
 export type VoiceSession = {
   clientSecret: string
   expiresAt: number
@@ -93,7 +101,16 @@ export type PortfolioHealth = {
   ok: boolean
   mode: string
   openaiConfigured: boolean
+  freeModelConfigured: boolean
+  freeModelName: string
   voiceConfigured: boolean
+  promptLimitEnabled: boolean
+  promptLimitUsed: number
+  promptLimitRemaining: number
+  promptLimitMaxPrompts: number
+  openaiPromptAvailable: boolean
+  openaiVoiceAvailable: boolean
+  openaiVoiceCreditCost: number
 }
 
 export type DocumentSummaryResponse = {
@@ -131,6 +148,7 @@ type StreamHandlers = {
   onAgent?: (agent: AgentRoute) => void
   onTrace?: (trace: AgentTrace) => void
   onFreeModelOffer?: (offer: FreeModelOffer) => void
+  onPromptLimit?: (status: PromptLimitStatus) => void
   onChunk?: (text: string) => void
   onDone?: (payload: { sessionId: string; live: boolean }) => void
 }
@@ -413,6 +431,10 @@ function dispatchSseEvent(block: string, handlers: StreamHandlers) {
 
   if (event === 'free_model_offer') {
     handlers.onFreeModelOffer?.(payload)
+  }
+
+  if (event === 'prompt_limit') {
+    handlers.onPromptLimit?.(payload)
   }
 
   if (event === 'chunk') {

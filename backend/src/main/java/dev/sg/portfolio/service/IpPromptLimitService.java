@@ -10,6 +10,7 @@ import java.sql.SQLException;
 import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -33,12 +34,45 @@ public class IpPromptLimitService {
         return reserveCredits(clientIp, properties.voiceMinuteCost());
     }
 
+    public PromptLimitStatus voiceMinuteStatus(String clientIp) {
+        return statusForCost(clientIp, properties.voiceMinuteCost());
+    }
+
     public boolean enabled() {
         return properties.enabled();
     }
 
     public int maxPrompts() {
         return properties.maxPrompts();
+    }
+
+    public int voiceMinuteCost() {
+        return properties.voiceMinuteCost();
+    }
+
+    public PromptLimitStatus status(String clientIp) {
+        return statusForCost(clientIp, properties.chatCost());
+    }
+
+    private PromptLimitStatus statusForCost(String clientIp, int cost) {
+        int normalizedCost = Math.max(1, cost);
+        int maxPrompts = properties.maxPrompts();
+        if (!properties.enabled()) {
+            return PromptLimitStatus.disabled(maxPrompts);
+        }
+
+        ensureSchema();
+        String normalizedIp = normalize(clientIp);
+        String ipHash = hash(normalizedIp);
+        int used = loadPromptCount(ipHash);
+        int remaining = Math.max(0, maxPrompts - used);
+        return new PromptLimitStatus(
+                true,
+                remaining >= normalizedCost,
+                used,
+                remaining,
+                maxPrompts
+        );
     }
 
     public PromptLimitStatus reserveCredits(String clientIp, int cost) {
@@ -99,6 +133,14 @@ public class IpPromptLimitService {
                 (resultSet, rowNum) -> toUsage(resultSet),
                 ipHash
         );
+    }
+
+    private int loadPromptCount(String ipHash) {
+        try {
+            return loadUsage(ipHash).promptCount();
+        } catch (EmptyResultDataAccessException ignored) {
+            return 0;
+        }
     }
 
     private Usage toUsage(ResultSet resultSet) throws SQLException {

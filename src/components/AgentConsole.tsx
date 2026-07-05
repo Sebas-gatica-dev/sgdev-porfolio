@@ -33,6 +33,8 @@ type Message = {
 type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'error'
 
 const VOICE_DEMO_LIMIT_MS = 60_000
+const openAiLogoSrc = `${import.meta.env.BASE_URL}openai-logo.svg`
+const qwenLogoSrc = `${import.meta.env.BASE_URL}qwen-logo.svg`
 
 const portfolioFollowUps = [
   {
@@ -83,12 +85,24 @@ export function AgentConsole() {
   const [conversationModel, setConversationModel] = useState<string | null>(null)
   const [conversationError, setConversationError] = useState<string | null>(null)
   const [voiceConfigured, setVoiceConfigured] = useState<boolean | null>(null)
+  const [openAiVoiceAvailable, setOpenAiVoiceAvailable] = useState<boolean | null>(null)
+  const [openAiVoiceCreditCost, setOpenAiVoiceCreditCost] = useState(5)
+  const [chatRuntime, setChatRuntime] = useState<ChatRuntime>('openai')
+  const [openAiConfigured, setOpenAiConfigured] = useState<boolean | null>(null)
+  const [qwenConfigured, setQwenConfigured] = useState<boolean | null>(null)
+  const [qwenModel, setQwenModel] = useState('qwen3:0.6b')
+  const [openAiCreditRemaining, setOpenAiCreditRemaining] = useState<number | null>(null)
+  const [openAiCreditsExhausted, setOpenAiCreditsExhausted] = useState(false)
   const [freeModelOffer, setFreeModelOffer] = useState<FreeModelOffer | null>(null)
   const [pendingFreePrompt, setPendingFreePrompt] = useState<string | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null)
+  const browserRecognitionRef = useRef<SpeechRecognition | null>(null)
+  const browserVoiceModeRef = useRef<'dictation' | 'conversation' | null>(null)
+  const freeConversationActiveRef = useRef(false)
+  const freeConversationRestartTimeoutRef = useRef<number | null>(null)
   const transcriptTurnsRef = useRef<Map<string, string>>(new Map())
   const voiceBaseTextRef = useRef('')
   const processedConversationItemsRef = useRef<Set<string>>(new Set())
@@ -103,22 +117,43 @@ export function AgentConsole() {
   const voiceActive = voiceStatus === 'connecting' || voiceStatus === 'listening'
   const conversationActive =
     conversationStatus === 'connecting' || conversationStatus === 'listening'
+  const openAiBlocked = openAiConfigured !== true || openAiCreditsExhausted
+  const browserSpeechAvailable = browserSpeechSupported()
+  const openAiVoiceReady = chatRuntime === 'openai' && openAiVoiceAvailable === true
 
   useEffect(() => {
     getPortfolioHealth()
       .then((health) => {
+        setOpenAiConfigured(health.openaiConfigured)
         setVoiceConfigured(health.voiceConfigured)
-        if (!health.voiceConfigured) {
-          setVoiceStatus('error')
-          setConversationStatus('error')
-          setVoiceError('Configura OPENAI_API_KEY en el backend para activar voz.')
-          setConversationError('Configura OPENAI_API_KEY en el backend para conversar por voz.')
+        setOpenAiVoiceAvailable(health.openaiVoiceAvailable)
+        setOpenAiVoiceCreditCost(health.openaiVoiceCreditCost || 5)
+        setQwenConfigured(health.freeModelConfigured)
+        setQwenModel(health.freeModelName || 'qwen3:0.6b')
+        setOpenAiCreditRemaining(health.promptLimitEnabled ? health.promptLimitRemaining : null)
+        const openAiPromptAvailable = health.openaiPromptAvailable !== false
+        setOpenAiCreditsExhausted(health.openaiConfigured && !openAiPromptAvailable)
+        const openAiAvailable = health.openaiConfigured && openAiPromptAvailable
+        if (!openAiAvailable) {
+          setChatRuntime('free')
+        }
+        if (!health.openaiVoiceAvailable && health.voiceConfigured && health.openaiConfigured) {
+          setVoiceError(
+            `OpenAI Realtime no tiene ${health.openaiVoiceCreditCost || 5} creditos disponibles para voz; el modo gratuito usa dictado del navegador.`,
+          )
+          setConversationError(
+            `OpenAI Realtime no tiene ${health.openaiVoiceCreditCost || 5} creditos disponibles para conversar; el modo gratuito usa Qwen.`,
+          )
         }
       })
       .catch(() => {
+        setOpenAiConfigured(false)
         setVoiceConfigured(false)
-        setVoiceStatus('error')
-        setConversationStatus('error')
+        setOpenAiVoiceAvailable(false)
+        setQwenConfigured(false)
+        setOpenAiCreditRemaining(null)
+        setOpenAiCreditsExhausted(false)
+        setChatRuntime('free')
         setVoiceError('No pude leer el estado del backend de voz.')
         setConversationError('No pude leer el estado del backend de conversacion.')
       })
@@ -138,7 +173,7 @@ export function AgentConsole() {
   async function handleSubmit(
     event?: FormEvent,
     overrideInput?: string,
-    runtime: ChatRuntime = 'openai',
+    runtime: ChatRuntime = chatRuntime,
   ) {
     event?.preventDefault()
     const clean = (overrideInput ?? input).trim()
@@ -146,7 +181,13 @@ export function AgentConsole() {
       return
     }
 
-    if (runtime === 'free') {
+    const selectedRuntime: ChatRuntime = openAiBlocked && runtime === 'openai' ? 'free' : runtime
+
+    if (selectedRuntime !== runtime) {
+      setChatRuntime(selectedRuntime)
+    }
+
+    if (selectedRuntime === 'free') {
       setFreeModelOffer(null)
       setPendingFreePrompt(null)
     }
@@ -172,15 +213,27 @@ export function AgentConsole() {
           message: clean,
           sessionId,
           agentId: 'coordinator',
-          runtime,
+          runtime: selectedRuntime,
           extensions: ['business-context'],
           dynamicContext: dynamicContextPayload(),
         },
         {
           onSession: setSessionId,
           onFreeModelOffer: (offer) => {
+            setOpenAiCreditsExhausted(true)
+            setChatRuntime('free')
             setFreeModelOffer(offer)
             setPendingFreePrompt(clean)
+          },
+          onPromptLimit: (status) => {
+            if (status.enabled) {
+              setOpenAiCreditRemaining(status.remaining)
+              setOpenAiVoiceAvailable(status.remaining >= openAiVoiceCreditCost)
+            }
+            if (status.enabled && status.remaining <= 0) {
+              setOpenAiCreditsExhausted(true)
+              setChatRuntime('free')
+            }
           },
           onChunk: (text) => {
             setMessages((current) =>
@@ -220,6 +273,7 @@ export function AgentConsole() {
       return
     }
 
+    setChatRuntime('free')
     void handleSubmit(undefined, pendingFreePrompt, 'free')
   }
 
@@ -248,16 +302,15 @@ export function AgentConsole() {
       clearConversationTranscript()
     }
 
-    if (voiceConfigured === false) {
-      setVoiceStatus('error')
-      setVoiceError('Configura OPENAI_API_KEY en el backend para activar voz.')
+    if (!openAiVoiceReady) {
+      startFreeDictationMode()
       return
     }
 
-    await startVoiceMode()
+    await startOpenAiVoiceMode()
   }
 
-  async function startVoiceMode() {
+  async function startOpenAiVoiceMode() {
     if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
       setVoiceStatus('error')
       setVoiceError('Este navegador no permite audio WebRTC desde esta pagina.')
@@ -284,6 +337,7 @@ export function AgentConsole() {
 
       const session = await createVoiceTranscriptionSession()
       setVoiceModel(session.model)
+      consumeOpenAiVoiceCreditEstimate()
       scheduleVoiceDemoLimit('dictation')
 
       const peerConnection = new RTCPeerConnection()
@@ -328,8 +382,11 @@ export function AgentConsole() {
       })
     } catch (error) {
       cleanupVoiceConnection()
+      setOpenAiVoiceAvailable(false)
       setVoiceStatus('error')
-      setVoiceError(error instanceof Error ? error.message : 'No se pudo activar el modo voz.')
+      setVoiceError(
+        `${error instanceof Error ? error.message : 'No se pudo activar el modo voz.'} Podes usar dictado gratuito con el navegador.`,
+      )
     }
   }
 
@@ -347,16 +404,15 @@ export function AgentConsole() {
       clearVoiceTranscript()
     }
 
-    if (voiceConfigured === false) {
-      setConversationStatus('error')
-      setConversationError('Configura OPENAI_API_KEY en el backend para conversar por voz.')
+    if (!openAiVoiceReady) {
+      startFreeConversationMode()
       return
     }
 
-    await startConversationMode()
+    await startOpenAiConversationMode()
   }
 
-  async function startConversationMode() {
+  async function startOpenAiConversationMode() {
     if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
       setConversationStatus('error')
       setConversationError('Este navegador no permite conversacion WebRTC desde esta pagina.')
@@ -383,6 +439,7 @@ export function AgentConsole() {
 
       const session = await createVoiceConversationSession()
       setConversationModel(session.model)
+      consumeOpenAiVoiceCreditEstimate()
       scheduleVoiceDemoLimit('conversation')
 
       const peerConnection = new RTCPeerConnection()
@@ -436,11 +493,280 @@ export function AgentConsole() {
       })
     } catch (error) {
       cleanupVoiceConnection()
+      setOpenAiVoiceAvailable(false)
       setConversationStatus('error')
       setConversationError(
-        error instanceof Error ? error.message : 'No se pudo activar el modo conversacion.',
+        `${error instanceof Error ? error.message : 'No se pudo activar el modo conversacion.'} Podes conversar gratis con Qwen en modo por turnos.`,
       )
     }
+  }
+
+  function startFreeDictationMode() {
+    const SpeechRecognition = getSpeechRecognitionConstructor()
+    if (!SpeechRecognition) {
+      setVoiceStatus('error')
+      setVoiceError(
+        'Este navegador no ofrece dictado gratuito Web Speech. Podes escribir el mensaje o usar OpenAI Realtime si esta disponible.',
+      )
+      return
+    }
+
+    cleanupVoiceConnection()
+    browserVoiceModeRef.current = 'dictation'
+    transcriptTurnsRef.current = new Map()
+    voiceBaseTextRef.current = input.trim()
+    setVoiceTranscript('')
+    setConversationTranscript('')
+
+    const recognition = new SpeechRecognition()
+    browserRecognitionRef.current = recognition
+    recognition.lang = 'es-AR'
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.maxAlternatives = 1
+
+    let finalTranscript = ''
+
+    recognition.onresult = (event) => {
+      let interimTranscript = ''
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index]
+        const transcript = result[0]?.transcript || ''
+        if (result.isFinal) {
+          finalTranscript = [finalTranscript, transcript].filter(Boolean).join(' ')
+        } else {
+          interimTranscript = [interimTranscript, transcript].filter(Boolean).join(' ')
+        }
+      }
+
+      const liveTranscript = normalizeSpokenText(
+        [finalTranscript, interimTranscript].filter(Boolean).join(' '),
+      )
+      const combined = [voiceBaseTextRef.current, liveTranscript].filter(Boolean).join(' ').trim()
+      setVoiceTranscript(liveTranscript)
+      setInput(combined)
+    }
+
+    recognition.onerror = (event) => {
+      if (event.error === 'no-speech') {
+        return
+      }
+      setVoiceStatus('error')
+      setVoiceError(`El dictado gratuito del navegador se pauso (${event.error}).`)
+      cleanupBrowserVoice()
+    }
+
+    recognition.onend = () => {
+      if (browserVoiceModeRef.current !== 'dictation') {
+        return
+      }
+      restartBrowserRecognition(recognition)
+    }
+
+    setVoiceModel('Web Speech API')
+    setVoiceStatus('listening')
+    setConversationStatus('idle')
+    setVoiceError(null)
+    setConversationError(null)
+
+    try {
+      recognition.start()
+    } catch (error) {
+      cleanupBrowserVoice()
+      setVoiceStatus('error')
+      setVoiceError(
+        error instanceof Error ? error.message : 'No se pudo activar el dictado gratuito.',
+      )
+    }
+  }
+
+  function startFreeConversationMode() {
+    const SpeechRecognition = getSpeechRecognitionConstructor()
+    if (!SpeechRecognition) {
+      setConversationStatus('error')
+      setConversationError(
+        'Este navegador no ofrece dictado gratuito Web Speech. Podes usar Qwen por texto o OpenAI Realtime si esta disponible.',
+      )
+      return
+    }
+
+    cleanupVoiceConnection()
+    setChatRuntime('free')
+    freeConversationActiveRef.current = true
+    browserVoiceModeRef.current = 'conversation'
+    processedConversationItemsRef.current = new Set()
+    assistantVoiceMessageIdRef.current = null
+    setConversationTranscript('')
+    setConversationModel(`${qwenModel} + Web Speech API`)
+    setConversationStatus('listening')
+    setVoiceStatus('idle')
+    setConversationError(null)
+    setVoiceError(null)
+    startFreeConversationListening()
+  }
+
+  function startFreeConversationListening() {
+    if (!freeConversationActiveRef.current || browserVoiceModeRef.current !== 'conversation') {
+      return
+    }
+
+    const SpeechRecognition = getSpeechRecognitionConstructor()
+    if (!SpeechRecognition) {
+      setConversationStatus('error')
+      setConversationError('El dictado gratuito dejo de estar disponible en este navegador.')
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    browserRecognitionRef.current = recognition
+    recognition.lang = 'es-AR'
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.maxAlternatives = 1
+
+    let finalTranscript = ''
+    let latestTranscript = ''
+
+    recognition.onresult = (event) => {
+      let interimTranscript = ''
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index]
+        const transcript = result[0]?.transcript || ''
+        if (result.isFinal) {
+          finalTranscript = [finalTranscript, transcript].filter(Boolean).join(' ')
+        } else {
+          interimTranscript = [interimTranscript, transcript].filter(Boolean).join(' ')
+        }
+      }
+
+      latestTranscript = normalizeSpokenText(
+        [finalTranscript, interimTranscript].filter(Boolean).join(' '),
+      )
+      setConversationTranscript(latestTranscript)
+    }
+
+    recognition.onerror = (event) => {
+      if (event.error === 'no-speech') {
+        return
+      }
+      setConversationStatus('error')
+      setConversationError(`La conversacion gratuita se pauso (${event.error}).`)
+      cleanupBrowserVoice()
+    }
+
+    recognition.onend = () => {
+      if (
+        !freeConversationActiveRef.current ||
+        browserVoiceModeRef.current !== 'conversation' ||
+        browserRecognitionRef.current !== recognition
+      ) {
+        return
+      }
+
+      browserRecognitionRef.current = null
+      const clean = normalizeSpokenText(finalTranscript || latestTranscript)
+      if (clean) {
+        setConversationTranscript('')
+        void submitFreeConversationTurn(clean)
+        return
+      }
+
+      restartFreeConversationListening(600)
+    }
+
+    try {
+      recognition.start()
+      setConversationStatus('listening')
+    } catch (error) {
+      setConversationStatus('error')
+      setConversationError(
+        error instanceof Error ? error.message : 'No se pudo escuchar con el navegador.',
+      )
+    }
+  }
+
+  async function submitFreeConversationTurn(prompt: string) {
+    if (!freeConversationActiveRef.current || !prompt.trim()) {
+      return
+    }
+
+    const assistantId = crypto.randomUUID()
+    let assistantText = ''
+    setMessages((current) => [
+      ...current,
+      { id: crypto.randomUUID(), role: 'user', content: prompt },
+      { id: assistantId, role: 'assistant', content: '' },
+    ])
+    setIsStreaming(true)
+
+    try {
+      await streamAgentResponse(
+        {
+          message: prompt,
+          sessionId,
+          agentId: 'coordinator',
+          runtime: 'free',
+          extensions: ['business-context'],
+          dynamicContext: dynamicContextPayload(),
+        },
+        {
+          onSession: setSessionId,
+          onChunk: (text) => {
+            assistantText += text
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === assistantId
+                  ? { ...message, content: `${message.content}${text}` }
+                  : message,
+              ),
+            )
+          },
+        },
+      )
+    } catch (error) {
+      assistantText = error instanceof Error ? error.message : 'No se pudo responder con Qwen.'
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
+            ? { ...message, content: `No pude responder con Qwen: ${assistantText}` }
+            : message,
+        ),
+      )
+    } finally {
+      setIsStreaming(false)
+    }
+
+    speakFreeConversationReply(assistantText)
+  }
+
+  function speakFreeConversationReply(text: string) {
+    if (!freeConversationActiveRef.current) {
+      return
+    }
+
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      setConversationError(
+        'Tu navegador no tiene text-to-speech local; sigo respondiendo por texto.',
+      )
+      restartFreeConversationListening(600)
+      return
+    }
+
+    const speechText = stripSpeechText(text)
+    if (!speechText) {
+      restartFreeConversationListening(350)
+      return
+    }
+
+    const utterance = new SpeechSynthesisUtterance(speechText)
+    utterance.lang = 'es-AR'
+    utterance.rate = 1
+    utterance.pitch = 1
+    utterance.onend = () => restartFreeConversationListening(350)
+    utterance.onerror = () => restartFreeConversationListening(350)
+
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utterance)
   }
 
   function handleRealtimeEvent(event: MessageEvent<string>) {
@@ -598,15 +924,35 @@ export function AgentConsole() {
       if (mode === 'conversation') {
         setConversationStatus('idle')
         setConversationTranscript('')
-        setConversationError('Se cumplio el minuto de demo de voz. Esta sesion consumio 5 creditos.')
+        setConversationError(
+          `Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} creditos.`,
+        )
         assistantVoiceMessageIdRef.current = null
         return
       }
 
       setVoiceStatus('idle')
       setVoiceTranscript('')
-      setVoiceError('Se cumplio el minuto de demo de voz. Esta sesion consumio 5 creditos.')
+      setVoiceError(
+        `Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} creditos.`,
+      )
     }, VOICE_DEMO_LIMIT_MS)
+  }
+
+  function consumeOpenAiVoiceCreditEstimate() {
+    setOpenAiCreditRemaining((current) => {
+      if (current === null) {
+        return current
+      }
+
+      const next = Math.max(0, current - openAiVoiceCreditCost)
+      setOpenAiVoiceAvailable(next >= openAiVoiceCreditCost)
+      if (next <= 0) {
+        setOpenAiCreditsExhausted(true)
+        setChatRuntime('free')
+      }
+      return next
+    })
   }
 
   function clearVoiceDemoLimit() {
@@ -618,6 +964,7 @@ export function AgentConsole() {
 
   function cleanupVoiceConnection() {
     clearVoiceDemoLimit()
+    cleanupBrowserVoice()
 
     dataChannelRef.current?.removeEventListener('message', handleRealtimeEvent)
     dataChannelRef.current?.removeEventListener('message', handleConversationRealtimeEvent)
@@ -635,6 +982,63 @@ export function AgentConsole() {
       remoteAudioRef.current.pause()
       remoteAudioRef.current.srcObject = null
     }
+  }
+
+  function cleanupBrowserVoice() {
+    if (freeConversationRestartTimeoutRef.current !== null) {
+      window.clearTimeout(freeConversationRestartTimeoutRef.current)
+      freeConversationRestartTimeoutRef.current = null
+    }
+
+    browserVoiceModeRef.current = null
+    freeConversationActiveRef.current = false
+
+    const recognition = browserRecognitionRef.current
+    browserRecognitionRef.current = null
+    if (recognition) {
+      recognition.onend = null
+      recognition.onerror = null
+      recognition.onresult = null
+      try {
+        recognition.abort()
+      } catch {
+        // Some browsers throw if recognition was already stopped.
+      }
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+    }
+  }
+
+  function restartBrowserRecognition(recognition: SpeechRecognition) {
+    if (freeConversationRestartTimeoutRef.current !== null) {
+      window.clearTimeout(freeConversationRestartTimeoutRef.current)
+    }
+
+    freeConversationRestartTimeoutRef.current = window.setTimeout(() => {
+      freeConversationRestartTimeoutRef.current = null
+      if (browserVoiceModeRef.current !== 'dictation' || browserRecognitionRef.current !== recognition) {
+        return
+      }
+
+      try {
+        recognition.start()
+      } catch {
+        setVoiceStatus('idle')
+      }
+    }, 350)
+  }
+
+  function restartFreeConversationListening(delayMs: number) {
+    if (freeConversationRestartTimeoutRef.current !== null) {
+      window.clearTimeout(freeConversationRestartTimeoutRef.current)
+    }
+
+    freeConversationRestartTimeoutRef.current = window.setTimeout(() => {
+      freeConversationRestartTimeoutRef.current = null
+      startFreeConversationListening()
+    }, delayMs)
   }
 
   async function copyMessage(message: Message) {
@@ -756,31 +1160,27 @@ export function AgentConsole() {
               <button
                 type="button"
                 onClick={toggleVoiceMode}
-                disabled={isStreaming || voiceConfigured === false || conversationStatus === 'connecting'}
-                title={
-                  voiceConfigured === false
-                    ? 'Configura OPENAI_API_KEY en el backend para activar voz'
-                    : undefined
-                }
+                disabled={(isStreaming && !voiceActive) || conversationStatus === 'connecting'}
+                title={voiceButtonTitle(openAiVoiceReady, browserSpeechAvailable)}
               >
                 {voiceActive ? <MicOff size={18} /> : <Mic size={18} />}
-                {voiceActive ? 'Detener dictado' : 'Dictar'}
+                {voiceActive ? 'Detener dictado' : openAiVoiceReady ? 'Dictar OpenAI' : 'Dictar gratis'}
               </button>
               <button
                 type="button"
                 onClick={toggleConversationMode}
-                disabled={isStreaming || voiceConfigured === false || voiceStatus === 'connecting'}
-                title={
-                  voiceConfigured === false
-                    ? 'Configura OPENAI_API_KEY en el backend para conversar'
-                    : undefined
-                }
+                disabled={(isStreaming && !conversationActive) || voiceStatus === 'connecting'}
+                title={conversationButtonTitle(openAiVoiceReady, browserSpeechAvailable)}
               >
                 {conversationActive ? <MicOff size={18} /> : <PhoneCall size={18} />}
-                {conversationActive ? 'Detener conversacion' : 'Conversar'}
+                {conversationActive
+                  ? 'Detener conversacion'
+                  : openAiVoiceReady
+                    ? 'Conversar OpenAI'
+                    : 'Conversar gratis'}
               </button>
             </div>
-            <div>
+            <div className="voice-status-copy">
               <strong>{audioLabel(voiceStatus, conversationStatus)}</strong>
               <span>
                 {audioDetail({
@@ -789,11 +1189,54 @@ export function AgentConsole() {
                   voiceStatus,
                   conversationModel,
                   conversationStatus,
+                  chatRuntime,
+                  qwenModel,
+                  openAiVoiceAvailable,
+                  openAiVoiceCreditCost,
+                  browserSpeechAvailable,
                 })}
               </span>
+              {voiceError && <p>{voiceError}</p>}
+              {conversationError && <p>{conversationError}</p>}
             </div>
-            {voiceError && <p>{voiceError}</p>}
-            {conversationError && <p>{conversationError}</p>}
+            <div
+              className="runtime-provider-toggle"
+              role="radiogroup"
+              aria-label="Proveedor del chat"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={chatRuntime === 'openai'}
+                className={chatRuntime === 'openai' ? 'runtime-provider-active' : undefined}
+                onClick={() => setChatRuntime('openai')}
+                disabled={isStreaming || conversationActive || openAiBlocked}
+                title={openAiProviderTitle(openAiConfigured, openAiCreditsExhausted)}
+              >
+                <span className="runtime-provider-logo-frame">
+                  <img src={openAiLogoSrc} alt="" aria-hidden="true" />
+                </span>
+                OpenAI
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={chatRuntime === 'free'}
+                className={chatRuntime === 'free' ? 'runtime-provider-active' : undefined}
+                onClick={() => setChatRuntime('free')}
+                disabled={isStreaming || conversationActive}
+                title={
+                  qwenConfigured === false
+                    ? 'Qwen local no esta activo; usara fallback demo.'
+                    : `Modelo ${qwenModel}`
+                }
+              >
+                <span className="runtime-provider-logo-frame">
+                  <img src={qwenLogoSrc} alt="" aria-hidden="true" />
+                </span>
+                Qwen
+              </button>
+            </div>
             <audio ref={remoteAudioRef} autoPlay playsInline className="conversation-audio" />
           </div>
 
@@ -814,7 +1257,7 @@ export function AgentConsole() {
                   onClick={handleUseFreeModel}
                   disabled={!freeModelOffer.enabled || !pendingFreePrompt || isStreaming}
                 >
-                  Usar modelo gratuito
+                  Usar Qwen
                 </button>
                 <button
                   type="button"
@@ -1043,22 +1486,62 @@ function audioPanelClass(voiceStatus: VoiceStatus, conversationStatus: VoiceStat
   return `voice-panel-${voiceStatus}`
 }
 
+function openAiProviderTitle(openAiConfigured: boolean | null, openAiCreditsExhausted: boolean) {
+  if (openAiConfigured === false) {
+    return 'OPENAI_API_KEY no esta disponible; se usa Qwen.'
+  }
+  if (openAiConfigured === null) {
+    return 'Chequeando disponibilidad de OpenAI.'
+  }
+  if (openAiCreditsExhausted) {
+    return 'Demo OpenAI agotada para esta IP. Usa Qwen para seguir.'
+  }
+  return 'Usar OpenAI'
+}
+
+function voiceButtonTitle(openAiVoiceReady: boolean, browserSpeechAvailable: boolean) {
+  if (openAiVoiceReady) {
+    return 'Dictado OpenAI Realtime: consume creditos de voz.'
+  }
+  if (browserSpeechAvailable) {
+    return 'Dictado gratuito del navegador: no consume OpenAI.'
+  }
+  return 'Este navegador no soporta dictado gratuito; proba Chrome, Edge o Safari.'
+}
+
+function conversationButtonTitle(openAiVoiceReady: boolean, browserSpeechAvailable: boolean) {
+  if (openAiVoiceReady) {
+    return 'Conversacion OpenAI Realtime: consume creditos de voz.'
+  }
+  if (browserSpeechAvailable) {
+    return 'Conversacion gratuita por turnos: navegador + Qwen + voz local.'
+  }
+  return 'Este navegador no soporta dictado gratuito; Qwen sigue disponible por texto.'
+}
+
 function audioDetail({
   voiceConfigured,
   voiceModel,
   voiceStatus,
   conversationModel,
   conversationStatus,
+  chatRuntime,
+  qwenModel,
+  openAiVoiceAvailable,
+  openAiVoiceCreditCost,
+  browserSpeechAvailable,
 }: {
   voiceConfigured: boolean | null
   voiceModel: string | null
   voiceStatus: VoiceStatus
   conversationModel: string | null
   conversationStatus: VoiceStatus
+  chatRuntime: ChatRuntime
+  qwenModel: string
+  openAiVoiceAvailable: boolean | null
+  openAiVoiceCreditCost: number
+  browserSpeechAvailable: boolean
 }) {
-  if (voiceConfigured === false) {
-    return 'Falta OPENAI_API_KEY en la instancia backend actual.'
-  }
   if (conversationStatus === 'connecting' || conversationStatus === 'listening') {
     return conversationModel
       ? `Modelo conversacion: ${conversationModel}`
@@ -1067,5 +1550,47 @@ function audioDetail({
   if (voiceStatus === 'connecting' || voiceStatus === 'listening') {
     return voiceModel ? `Modelo dictado: ${voiceModel}` : 'Modelo dictado: gpt-4o-mini-transcribe'
   }
+  if (chatRuntime === 'free') {
+    return browserSpeechAvailable
+      ? `Modo gratuito: dictado del navegador, respuestas ${qwenModel} y voz local.`
+      : `Qwen (${qwenModel}) esta disponible por texto; este navegador no ofrece dictado gratis.`
+  }
+  if (openAiVoiceAvailable === false) {
+    return browserSpeechAvailable
+      ? `OpenAI voz requiere ${openAiVoiceCreditCost} creditos; se usa modo gratuito del navegador.`
+      : `OpenAI voz requiere ${openAiVoiceCreditCost} creditos y este navegador no ofrece dictado gratis.`
+  }
+  if (voiceConfigured === false) {
+    return browserSpeechAvailable
+      ? 'OpenAI Realtime no esta configurado; voz gratuita disponible desde el navegador.'
+      : 'OpenAI Realtime no esta configurado y este navegador no ofrece dictado gratuito.'
+  }
   return 'Dictado transcribe texto; Conversar responde con voz. Solo uno puede estar activo.'
+}
+
+function getSpeechRecognitionConstructor() {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+  return window.SpeechRecognition || window.webkitSpeechRecognition
+}
+
+function browserSpeechSupported() {
+  return Boolean(getSpeechRecognitionConstructor())
+}
+
+function normalizeSpokenText(value: string) {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function stripSpeechText(value: string) {
+  return normalizeSpokenText(
+    value
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/^#{1,6}\s*/gm, '')
+      .replace(/^\s*[-*]\s+/gm, '')
+      .replace(/\*\*|__/g, '')
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1'),
+  )
 }

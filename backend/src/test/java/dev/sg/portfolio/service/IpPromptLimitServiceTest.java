@@ -60,6 +60,39 @@ class IpPromptLimitServiceTest {
     }
 
     @Test
+    void reportsStatusWithoutConsumingCredits() {
+        IpPromptLimitService service = service(true, 2);
+
+        PromptLimitStatus initial = service.status("203.0.113.45");
+        PromptLimitStatus afterStatusCheck = service.status("203.0.113.45");
+        service.reservePrompt("203.0.113.45");
+        service.reservePrompt("203.0.113.45");
+        PromptLimitStatus exhausted = service.status("203.0.113.45");
+
+        assertThat(initial.allowed()).isTrue();
+        assertThat(initial.used()).isZero();
+        assertThat(afterStatusCheck.used()).isZero();
+        assertThat(exhausted.allowed()).isFalse();
+        assertThat(exhausted.remaining()).isZero();
+    }
+
+    @Test
+    void reportsVoiceAvailabilityUsingVoiceCostWithoutConsumingCredits() {
+        IpPromptLimitService service = service(true, 6);
+
+        service.reservePrompt("203.0.113.46");
+        PromptLimitStatus voiceAvailable = service.voiceMinuteStatus("203.0.113.46");
+        service.reservePrompt("203.0.113.46");
+        PromptLimitStatus voiceUnavailable = service.voiceMinuteStatus("203.0.113.46");
+
+        assertThat(voiceAvailable.allowed()).isTrue();
+        assertThat(voiceAvailable.used()).isEqualTo(1);
+        assertThat(voiceUnavailable.allowed()).isFalse();
+        assertThat(voiceUnavailable.used()).isEqualTo(2);
+        assertThat(voiceUnavailable.remaining()).isEqualTo(4);
+    }
+
+    @Test
     void ignoresPromptCapWhenDisabled() {
         IpPromptLimitService service = service(false, 1);
 

@@ -3,7 +3,11 @@ import {
   ArrowRight,
   BrainCircuit,
   Braces,
+  Briefcase,
+  CalendarDays,
   Check,
+  Code2,
+  Coffee,
   Database,
   FileText,
   Github,
@@ -17,6 +21,7 @@ import {
   Sparkles,
   Stethoscope,
   Sun,
+  Target,
   Workflow,
 } from 'lucide-react'
 import Atropos from 'atropos/react'
@@ -52,10 +57,78 @@ const routes: Route[] = [
   '/contacto',
 ]
 
+const primaryNavItems = [
+  { href: '/' as Route, label: 'Inicio', icon: Sparkles },
+  { href: '/demos' as Route, label: 'Demos', icon: MessageSquareText },
+  { href: '/contacto' as Route, label: 'Contacto', icon: Mail },
+]
+
 const profileLinks = {
   linkedin: 'https://www.linkedin.com/',
   github: 'https://github.com/',
 }
+
+const professionalProfile = [
+  'Cuento con 3 años de experiencia construyendo aplicaciones robustas y escalables en entornos empresariales y proyectos freelance.',
+  'Me especializo en el desarrollo backend con Java y Spring Boot, y en la creación de interfaces modernas y performantes con ReactJS y Next.js.',
+  'Además, diseño e implemento flujos multiagente con Google ADK para automatizar procesos y potenciar soluciones inteligentes sobre infraestructura de microservicios.',
+]
+
+const professionalCapabilities = [
+  {
+    title: 'Backend y frontend',
+    text: 'APIs, servicios Spring Boot, interfaces React y experiencias web orientadas a producto.',
+    icon: Braces,
+  },
+  {
+    title: 'Agentes de IA',
+    text: 'Creación de agentes personalizados en OpenClaw, orquestación multi agente y funcionalidades a medida.',
+    icon: BrainCircuit,
+  },
+  {
+    title: 'Infraestructura',
+    text: 'Administración de VPS, Nginx, Docker, bases de datos y despliegue de modelos LLM open source.',
+    icon: ServerCog,
+  },
+  {
+    title: 'Integración continua',
+    text: 'Flujos CI/CD con Terraform, GitHub Actions y múltiples gestores de versión.',
+    icon: Workflow,
+  },
+]
+
+const professionalStats = [
+  { value: '3+ años', label: 'Experiencia', icon: CalendarDays },
+  { value: 'Proyectos', label: 'Empresariales y freelance', icon: Briefcase },
+  { value: 'Enfoque', label: 'Calidad, escalabilidad e IA', icon: Target },
+]
+
+const professionalStackRows = [
+  {
+    title: 'Java + Spring Boot',
+    text: 'APIs RESTful, arquitectura por capas y microservicios listos para producción.',
+    icon: Coffee,
+    tags: ['Java', 'Spring Boot'],
+  },
+  {
+    title: 'ReactJS + Next.js',
+    text: 'Interfaces modernas, componentes reutilizables y experiencias rápidas y optimizadas.',
+    icon: Code2,
+    tags: ['React', 'Next.js'],
+  },
+  {
+    title: 'Multiagentes con Google ADK',
+    text: 'Diseño de flujos multiagente para automatizar tareas y resolver problemas complejos.',
+    icon: BrainCircuit,
+    tags: ['ADK'],
+  },
+  {
+    title: 'OpenClaw',
+    text: 'Creación y personalización de agentes con herramientas, memoria y orquestación a medida.',
+    icon: OpenClawIcon,
+    tags: ['OpenClaw'],
+  },
+]
 
 const demoCards = [
   {
@@ -131,20 +204,17 @@ function App() {
           <strong>Sebastian Gatica</strong>
         </PageLink>
         <div className="nav-actions">
-          <nav aria-label="Navegacion principal">
-            <PageLink href="/" onNavigate={navigate} active={route === '/'}>
-              Inicio
-            </PageLink>
-            <PageLink
-              href="/demos"
-              onNavigate={navigate}
-              active={route === '/demos' || route.startsWith('/demos') || route === '/demo'}
-            >
-              Demos
-            </PageLink>
-            <PageLink href="/contacto" onNavigate={navigate} active={route === '/contacto'}>
-              Contacto
-            </PageLink>
+          <nav className="desktop-nav" aria-label="Navegacion principal">
+            {primaryNavItems.map((item) => (
+              <PageLink
+                href={item.href}
+                key={item.href}
+                onNavigate={navigate}
+                active={isPrimaryRouteActive(item.href, route)}
+              >
+                {item.label}
+              </PageLink>
+            ))}
           </nav>
           <button
             className="theme-toggle"
@@ -157,6 +227,20 @@ function App() {
           </button>
         </div>
       </header>
+
+      <nav className="mobile-tabbar" aria-label="Navegacion principal movil">
+        {primaryNavItems.map((item) => (
+          <PageLink
+            href={item.href}
+            key={item.href}
+            onNavigate={navigate}
+            active={isPrimaryRouteActive(item.href, route)}
+          >
+            <item.icon size={19} />
+            <span>{item.label}</span>
+          </PageLink>
+        ))}
+      </nav>
 
       <main className="page-shell" id="top">
         {route === '/' && <HomePage onNavigate={navigate} />}
@@ -212,8 +296,8 @@ function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
           </div>
           <h1>Java Full Stack + IA aplicada.</h1>
           <p className="hero-lead">
-            Soy Sebastian Gatica. Desarrollo soluciones a medida con Spring Boot, React,
-            OpenAI, voz realtime, APIs y flujos de negocio usables.
+            Soy Sebastian Gatica. Desarrollo soluciones a medida con Spring, React,
+            LLMs, voz realtime, APIs y flujos de negocio usables.
           </p>
 
           <div className="hero-actions">
@@ -248,14 +332,14 @@ function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
               <img src={assetPath('favicon.svg')} alt="" />
               <div>
                 <strong>SG AI portfolio</strong>
-                <span>React, WebFlux, OpenAI y workflows auditables.</span>
+                <span>React, WebFlux, LLMs y workflows funcionales.</span>
               </div>
             </div>
 
             <div className="signal-grid" aria-label="Indicadores">
               <div className="metric" data-atropos-offset="2">
                 <strong>3</strong>
-                <span>Demos navegables</span>
+                <span>Demos integradas</span>
               </div>
               <div className="metric" data-atropos-offset="3">
                 <strong>SSE</strong>
@@ -267,7 +351,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
               </div>
               <div className="metric" data-atropos-offset="2">
                 <strong>PDF</strong>
-                <span>Documentos efimeros</span>
+                <span>Analisis, procesamiento de documentos</span>
               </div>
             </div>
 
@@ -276,7 +360,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
               <ArrowRight size={16} />
               <span>WebFlux</span>
               <ArrowRight size={16} />
-              <span>OpenAI</span>
+              <span>LLMs</span>
             </div>
 
             <div className="runtime-mini-map" data-atropos-offset="3">
@@ -307,6 +391,8 @@ function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
         </Atropos>
       </section>
 
+      <ProfessionalProfileSection />
+
       <section className="home-demos-band">
         <SectionHeading
           kicker="Demos"
@@ -320,12 +406,12 @@ function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
         <div className="skill-snapshot-copy">
           <div className="section-kicker">
             <ShieldCheck size={18} />
-            Criterio tecnico
+            Criterio Tecnico
           </div>
-          <h2>La calidad tambien se ve en pantalla.</h2>
+          <h2>El desarrollar flujos utiles, optimizar procesos.</h2>
           <p>
             El portfolio prioriza interaccion real, datos vivos, fallback y acciones seguras
-            para que cada demo muestre criterio de producto, no solo una pantalla linda.
+            para que cada demo muestre criterios de producto, solo la punta del iceberg de funcionalidades que se pueden implementar para optimizar o imnovar.
           </p>
         </div>
 
@@ -345,6 +431,92 @@ function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
   )
 }
 
+function OpenClawIcon({ size = 31 }: { size?: number }) {
+  return (
+    <img
+      className="professional-stack-logo"
+      src={assetPath('openclaw.svg')}
+      alt=""
+      width={size}
+      height={size}
+    />
+  )
+}
+
+function ProfessionalProfileSection() {
+  return (
+    <section className="professional-profile-band">
+      <div className="professional-profile-top">
+        <div className="professional-profile-copy">
+          <div className="section-kicker">
+            <ShieldCheck size={18} />
+            Perfil profesional
+          </div>
+          <h2>Construyo software full stack con criterio de backend, producto e IA.</h2>
+        </div>
+
+        <div className="professional-capability-grid">
+          {professionalCapabilities.map((capability) => (
+            <article className="professional-capability-card" key={capability.title}>
+              <capability.icon size={21} />
+              <div>
+                <strong>{capability.title}</strong>
+                <span>{capability.text}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="professional-summary-panel">
+        <div className="professional-summary-copy">
+          <div className="section-kicker">
+            <Sparkles size={18} />
+            Resumen profesional
+          </div>
+          <h3>Desarrollador Full Stack Java con enfoque en producto e IA.</h3>
+          <div className="professional-profile-text">
+            {professionalProfile.map((item) => (
+              <p key={item}>{item}</p>
+            ))}
+          </div>
+
+          <div className="professional-stat-grid">
+            {professionalStats.map((stat) => (
+              <article key={stat.value}>
+                <stat.icon size={21} />
+                <div>
+                  <strong>{stat.value}</strong>
+                  <span>{stat.label}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="professional-stack-list">
+          {professionalStackRows.map((row) => (
+            <article className="professional-stack-row" key={row.title}>
+              <span className="professional-stack-mark">
+                <row.icon size={31} />
+              </span>
+              <div className="professional-stack-copy">
+                <strong>{row.title}</strong>
+                <span>{row.text}</span>
+              </div>
+              <div className="professional-tech-tags">
+                {row.tags.map((tag) => (
+                  <span key={`${row.title}-${tag}`}>{tag}</span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function DemosPage({ onNavigate }: { onNavigate: (path: Route) => void }) {
   return (
     <section className="section demos-page">
@@ -355,7 +527,6 @@ function DemosPage({ onNavigate }: { onNavigate: (path: Route) => void }) {
       />
 
       <DemoCardGrid demos={demoCards} onNavigate={onNavigate} />
-      <QualityGateGrid />
     </section>
   )
 }
@@ -559,8 +730,8 @@ function DocumentDemoPage({ onNavigate }: { onNavigate: (path: Route) => void })
         text="Subi un PDF, obtene un resumen con input_file y store=false, separando hechos, dudas y proximos pasos sin conservar el archivo."
       />
 
-      <DemoPlaybookPanel playbookId="documents" />
       <DocumentSummaryDemo />
+      <DemoPlaybookPanel playbookId="documents" />
     </section>
   )
 }
@@ -575,8 +746,8 @@ function MedicalAppointmentDemoPage({ onNavigate }: { onNavigate: (path: Route) 
         text="La persona llama, pide un turno, el agente consulta disponibilidad, propone alternativas y deja la reserva visible en el calendario en tiempo real."
       />
 
-      <DemoPlaybookPanel playbookId="appointments" />
       <MedicalAppointmentDemo />
+      <DemoPlaybookPanel playbookId="appointments" />
     </section>
   )
 }
@@ -809,6 +980,14 @@ function getPageTitle(route: Route) {
     return 'Contacto'
   }
   return 'Inicio'
+}
+
+function isPrimaryRouteActive(itemPath: Route, currentRoute: Route) {
+  if (itemPath === '/demos') {
+    return currentRoute === '/demos' || currentRoute.startsWith('/demos') || currentRoute === '/demo'
+  }
+
+  return currentRoute === itemPath
 }
 
 function SectionHeading({ kicker, title, text }: { kicker: string; title: string; text: string }) {

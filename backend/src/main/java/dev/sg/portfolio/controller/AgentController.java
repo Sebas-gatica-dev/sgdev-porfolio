@@ -90,17 +90,28 @@ public class AgentController {
     }
 
     @GetMapping("/portfolio/health")
-    public Map<String, Object> health() {
-        return Map.of(
-                "ok", true,
-                "mode", openAi.configured() ? "portfolio-runtime-live" : "portfolio-runtime-local",
-                "openaiConfigured", openAi.configured(),
-                "freeModelConfigured", freeModel.configured(),
-                "freeModelName", freeModel.model(),
-                "voiceConfigured", realtime.configured(),
-                "promptLimitEnabled", promptLimitService.enabled(),
-                "promptLimitMaxPrompts", promptLimitService.maxPrompts(),
-                "runtime", "Portfolio assistant + demo tools + prompt composer + voice"
+    public Map<String, Object> health(ServerHttpRequest request) {
+        String clientIp = clientIpResolver.resolve(request);
+        PromptLimitStatus promptAvailability = promptLimitService.status(
+                clientIp
+        );
+        PromptLimitStatus voiceAvailability = promptLimitService.voiceMinuteStatus(clientIp);
+
+        return Map.ofEntries(
+                Map.entry("ok", true),
+                Map.entry("mode", openAi.configured() ? "portfolio-runtime-live" : "portfolio-runtime-local"),
+                Map.entry("openaiConfigured", openAi.configured()),
+                Map.entry("freeModelConfigured", freeModel.configured()),
+                Map.entry("freeModelName", freeModel.model()),
+                Map.entry("voiceConfigured", realtime.configured()),
+                Map.entry("promptLimitEnabled", promptLimitService.enabled()),
+                Map.entry("promptLimitUsed", promptAvailability.used()),
+                Map.entry("promptLimitRemaining", promptAvailability.remaining()),
+                Map.entry("promptLimitMaxPrompts", promptLimitService.maxPrompts()),
+                Map.entry("openaiPromptAvailable", promptAvailability.allowed()),
+                Map.entry("openaiVoiceAvailable", realtime.configured() && voiceAvailability.allowed()),
+                Map.entry("openaiVoiceCreditCost", promptLimitService.voiceMinuteCost()),
+                Map.entry("runtime", "Portfolio assistant + demo tools + prompt composer + voice")
         );
     }
 
@@ -133,7 +144,8 @@ public class AgentController {
         String sessionId = StringUtils.hasText(request.sessionId())
                 ? request.sessionId()
                 : UUID.randomUUID().toString();
-        boolean freeRuntime = "free".equals(normalizeRuntime(request.runtime()));
+        boolean requestedFreeRuntime = "free".equals(normalizeRuntime(request.runtime()));
+        boolean freeRuntime = requestedFreeRuntime || !openAi.configured();
         PromptLimitStatus promptLimit = freeRuntime
                 ? PromptLimitStatus.disabled(promptLimitService.maxPrompts())
                 : promptLimitService.reservePrompt(clientIpResolver.resolve(serverRequest));
@@ -151,9 +163,10 @@ public class AgentController {
                             safeList(request.extensions()),
                             contextItems
                     );
-                    Flux<ServerSentEvent<Object>> header = runtimeHeader(sessionId, route, promptLimit, promptPlan);
+                    PromptPlan runtimePromptPlan = applyRuntimeIdentity(promptPlan, freeRuntime);
+                    Flux<ServerSentEvent<Object>> header = runtimeHeader(sessionId, route, promptLimit, runtimePromptPlan);
 
-                    Flux<ServerSentEvent<Object>> body = chatBody(message, promptPlan, live, freeRuntime);
+                    Flux<ServerSentEvent<Object>> body = chatBody(message, runtimePromptPlan, live, freeRuntime);
 
                     return Flux.concat(
                             header,
@@ -166,15 +179,13 @@ public class AgentController {
     @PostMapping("/agent/voice/session")
     public Mono<ResponseEntity<Object>> createVoiceSession(ServerHttpRequest request) {
         String clientIp = clientIpResolver.resolve(request);
-        if (realtime.configured()) {
-            PromptLimitStatus promptLimit = promptLimitService.reserveVoiceMinute(clientIp);
-            if (!promptLimit.allowed()) {
-                return Mono.just(promptLimitResponse(promptLimit));
-            }
+        PromptLimitStatus promptLimit = promptLimitService.voiceMinuteStatus(clientIp);
+        if (realtime.configured() && !promptLimit.allowed()) {
+            return Mono.just(promptLimitResponse(promptLimit));
         }
 
         return realtime.createTranscriptionSession(promptLimitService.safetyIdentifier(clientIp))
-                .flatMap(this::okResponse)
+                .flatMap(session -> reserveVoiceMinuteAndReturn(clientIp, session))
                 .onErrorResume(OpenAiRealtimeException.class, this::realtimeErrorResponse)
                 .onErrorResume(WebClientRequestException.class, this::realtimeTransportErrorResponse)
                 .onErrorResume(IllegalStateException.class, this::badGatewayResponse);
@@ -183,15 +194,13 @@ public class AgentController {
     @PostMapping("/agent/conversation/session")
     public Mono<ResponseEntity<Object>> createConversationSession(ServerHttpRequest request) {
         String clientIp = clientIpResolver.resolve(request);
-        if (realtime.configured()) {
-            PromptLimitStatus promptLimit = promptLimitService.reserveVoiceMinute(clientIp);
-            if (!promptLimit.allowed()) {
-                return Mono.just(promptLimitResponse(promptLimit));
-            }
+        PromptLimitStatus promptLimit = promptLimitService.voiceMinuteStatus(clientIp);
+        if (realtime.configured() && !promptLimit.allowed()) {
+            return Mono.just(promptLimitResponse(promptLimit));
         }
 
         return realtime.createConversationSession(promptLimitService.safetyIdentifier(clientIp))
-                .flatMap(this::okResponse)
+                .flatMap(session -> reserveVoiceMinuteAndReturn(clientIp, session))
                 .onErrorResume(OpenAiRealtimeException.class, this::realtimeErrorResponse)
                 .onErrorResume(WebClientRequestException.class, this::realtimeTransportErrorResponse)
                 .onErrorResume(IllegalStateException.class, this::badGatewayResponse);
@@ -203,16 +212,14 @@ public class AgentController {
             ServerHttpRequest serverRequest
     ) {
         String clientIp = clientIpResolver.resolve(serverRequest);
-        if (realtime.configured()) {
-            PromptLimitStatus promptLimit = promptLimitService.reserveVoiceMinute(clientIp);
-            if (!promptLimit.allowed()) {
-                return Mono.just(promptLimitResponse(promptLimit));
-            }
+        PromptLimitStatus promptLimit = promptLimitService.voiceMinuteStatus(clientIp);
+        if (realtime.configured() && !promptLimit.allowed()) {
+            return Mono.just(promptLimitResponse(promptLimit));
         }
 
         String consultationType = request == null ? "" : request.consultationType();
         return realtime.createAppointmentSession(promptLimitService.safetyIdentifier(clientIp), consultationType)
-                .flatMap(this::okResponse)
+                .flatMap(session -> reserveVoiceMinuteAndReturn(clientIp, session))
                 .onErrorResume(OpenAiRealtimeException.class, this::realtimeErrorResponse)
                 .onErrorResume(WebClientRequestException.class, this::realtimeTransportErrorResponse)
                 .onErrorResume(IllegalArgumentException.class, this::badRequestResponse)
@@ -289,6 +296,18 @@ public class AgentController {
         return Mono.just(ResponseEntity.ok(response));
     }
 
+    private Mono<ResponseEntity<Object>> reserveVoiceMinuteAndReturn(String clientIp, VoiceSessionResponse session) {
+        if (!realtime.configured()) {
+            return okResponse(session);
+        }
+
+        PromptLimitStatus promptLimit = promptLimitService.reserveVoiceMinute(clientIp);
+        if (!promptLimit.allowed()) {
+            return Mono.just(promptLimitResponse(promptLimit));
+        }
+        return okResponse(session);
+    }
+
     private Mono<ResponseEntity<Object>> realtimeErrorResponse(OpenAiRealtimeException error) {
         return Mono.just(ResponseEntity
                 .status(HttpStatusCode.valueOf(error.statusCode()))
@@ -357,12 +376,15 @@ public class AgentController {
                 ))
         );
         if (promptLimit.enabled()) {
-            header = Flux.concat(header, Flux.just(event("trace", new AgentTrace(
-                    "Limite por IP",
-                    "Creditos usados: " + promptLimit.used() + " de " + promptLimit.maxPrompts()
-                            + ". Quedan " + promptLimit.remaining() + ".",
-                    "running"
-            ))));
+            header = Flux.concat(header, Flux.just(
+                    event("prompt_limit", promptLimit),
+                    event("trace", new AgentTrace(
+                            "Limite por IP",
+                            "Creditos usados: " + promptLimit.used() + " de " + promptLimit.maxPrompts()
+                                    + ". Quedan " + promptLimit.remaining() + ".",
+                            "running"
+                    ))
+            ));
         }
         return header;
     }
@@ -423,19 +445,23 @@ public class AgentController {
                 ))
         );
 
+        Flux<ServerSentEvent<Object>> identityPrefix = freeRuntimeIdentityPrefix(message);
+
         Flux<ServerSentEvent<Object>> chunks = freeModel.configured()
                 ? freeModel.streamText(message, promptPlan.instructions())
                         .map(text -> event("chunk", new TextChunk(text)))
-                        .onErrorResume(error -> simulator.stream(
+                        .onErrorResume(error -> simulator.streamFreeModelFallback(
                                 message,
+                                freeModel.model(),
                                 "el modelo gratuito local no pudo responder (" + error.getMessage() + ")."
                         ))
-                : simulator.stream(
+                : simulator.streamFreeModelFallback(
                         message,
+                        freeModel.model(),
                         "el modelo gratuito local no esta configurado en PORTFOLIO_FREE_MODEL_BASE_URL."
                 );
 
-        return Flux.concat(freeTrace, chunks);
+        return Flux.concat(freeTrace, identityPrefix, chunks);
     }
 
     private List<String> safeList(List<String> values) {
@@ -466,6 +492,7 @@ public class AgentController {
     private Flux<ServerSentEvent<Object>> promptLimitExceeded(String sessionId, PromptLimitStatus promptLimit) {
         return Flux.just(
                 event("session", new SessionEvent(sessionId)),
+                event("prompt_limit", promptLimit),
                 event("trace", new AgentTrace(
                         "Limite por IP",
                         "La IP ya uso " + promptLimit.used() + " de " + promptLimit.maxPrompts() + " creditos.",
@@ -495,6 +522,60 @@ public class AgentController {
 
     private String normalizeRuntime(String runtime) {
         return runtime == null ? "openai" : runtime.trim().toLowerCase();
+    }
+
+    private PromptPlan applyRuntimeIdentity(PromptPlan promptPlan, boolean freeRuntime) {
+        if (!freeRuntime) {
+            return promptPlan;
+        }
+
+        String model = freeModel.model();
+        String runtimeIdentity = """
+
+                ## Runtime Actual (Prioridad Alta)
+                - Estas respondiendo con Qwen (%s), ejecutado como modelo gratuito local mediante FastAPI/Ollama.
+                - Si el usuario pregunta quien sos, que modelo usas o que proveedor esta activo, deci claramente que esta respuesta esta usando Qwen (%s).
+                - No digas que sos OpenAI ni que estas impulsado por OpenAI cuando el runtime actual es Qwen; podes mencionar que el portfolio tambien ofrece OpenAI como opcion separada.
+                """.formatted(model, model);
+
+        return new PromptPlan(
+                runtimeIdentity + "\n\n" + promptPlan.instructions(),
+                promptPlan.agentPromptPath(),
+                promptPlan.loadedExtensions(),
+                promptPlan.missingExtensions(),
+                promptPlan.dynamicContextItems()
+        );
+    }
+
+    private Flux<ServerSentEvent<Object>> freeRuntimeIdentityPrefix(String message) {
+        if (!isIdentityQuestion(message)) {
+            return Flux.empty();
+        }
+
+        return Flux.just(event("chunk", new TextChunk(
+                "Estoy usando Qwen (" + freeModel.model()
+                        + ") como modelo gratuito local integrado al portfolio de Sebastian Gatica. "
+        )));
+    }
+
+    private boolean isIdentityQuestion(String message) {
+        if (!StringUtils.hasText(message)) {
+            return false;
+        }
+
+        String normalized = java.text.Normalizer.normalize(message, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase();
+        return normalized.contains("quien sos")
+                || normalized.contains("quien eres")
+                || normalized.contains("que sos")
+                || normalized.contains("que eres")
+                || normalized.contains("que modelo")
+                || normalized.contains("cual modelo")
+                || normalized.contains("modelo usas")
+                || normalized.contains("estas usando")
+                || normalized.contains("sos openai")
+                || normalized.contains("eres openai");
     }
 
     private ResponseEntity<Object> promptLimitResponse(PromptLimitStatus promptLimit) {

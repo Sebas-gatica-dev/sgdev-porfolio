@@ -8,8 +8,9 @@ Portfolio de Sebastian Gatica para presentar trabajo freelance en aplicaciones J
 - Backend Spring Boot WebFlux con runtime ADK-aligned: coordinator, especialistas, prompt composer, contexto dinamico y trazas SSE.
 - Consumo de GPT por OpenAI Responses API usando `WebClient`.
 - Prompts versionados por agente y extensiones (`core`, `agents`, `extensions`, `realtime`).
-- Modo voz en el chat con WebRTC y transcripcion Realtime.
-- Modo conversacion por voz con respuesta hablada usando Realtime.
+- Modo voz OpenAI en el chat con WebRTC y transcripcion Realtime.
+- Modo conversacion OpenAI con respuesta hablada usando Realtime.
+- Fallback gratuito de voz: dictado del navegador + Qwen + voz local del navegador.
 - Demo de reserva medica con herramientas, agenda viva y persistencia PostgreSQL.
 - Limite de creditos por IP con persistencia JDBC: 20 creditos, chat 1, voz 5 por minuto.
 - Modelo gratuito local con FastAPI + Ollama + Qwen3 0.6B para continuar cuando se agota el cupo por IP.
@@ -57,8 +58,12 @@ El backend usa Spring WebFlux para llamar `POST https://api.openai.com/v1/respon
 Para voz, el backend genera un `client_secret` efimero con `POST /v1/realtime/client_secrets`
 y el navegador abre WebRTC contra la Realtime API sin exponer `OPENAI_API_KEY`.
 Cada sesion de voz queda limitada a 60 segundos y consume 5 creditos de demo por IP.
-Cuando una IP agota sus 20 creditos, el chat muestra un aviso para seguir con el modelo
-gratuito local sin consumir OpenAI.
+La UI solo habilita la variante OpenAI de `Dictar` y `Conversar` cuando `/api/portfolio/health`
+devuelve `openaiVoiceAvailable=true`: Realtime configurado y creditos suficientes para el costo
+de voz. Cuando OpenAI no esta configurado o no alcanza el saldo de voz, los botones pasan al modo
+gratuito: Web Speech API en el navegador para dictar, Qwen para responder y `speechSynthesis`
+para leer la respuesta. Cuando una IP agota sus 20 creditos, el chat muestra un aviso para seguir
+con el modelo gratuito local sin consumir OpenAI.
 
 Si al activar voz aparece un 403, el backend ya esta funcionando pero OpenAI rechazo la sesion:
 normalmente falta billing/permisos de Realtime en la API key o acceso al modelo configurado en
@@ -106,6 +111,31 @@ Flujo en la UI:
 2. El backend emite el evento SSE `free_model_offer`.
 3. El chat muestra un tooltip para usar el modelo gratuito.
 4. Si el usuario acepta, el mismo prompt se reintenta con `runtime: "free"`.
+5. `Dictar gratis` usa Web Speech API del navegador y no consume creditos OpenAI.
+6. `Conversar gratis` funciona por turnos: navegador transcribe, Qwen responde por streaming y
+   la voz local del navegador lee la respuesta.
+
+## Voz gratuita y comparativa
+
+La demo queda con dos calidades visibles:
+
+- OpenAI Realtime: WebRTC, baja latencia, transcripcion y respuesta hablada integradas, pero depende
+  de API key, billing/permisos y creditos por IP.
+- Gratis/Qwen: no consume OpenAI; usa el dictado y TTS del navegador cuando estan disponibles. Es
+  mas simple y menos realtime, pero mantiene la demo conversable aun sin saldo OpenAI.
+
+Opciones para evolucionar el modo gratuito:
+
+- Web Speech API: MDN documenta reconocimiento y sintesis de voz desde el navegador, con soporte
+  posible en dispositivo segun navegador y paquetes de idioma:
+  https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API/Using_the_Web_Speech_API
+- Qwen3-ASR: modelos Qwen de reconocimiento de voz para multiples idiomas/dialectos, con modo
+  streaming/offline:
+  https://huggingface.co/Qwen/Qwen3-ASR-1.7B
+- Qwen3-TTS: familia open-source de TTS Qwen con generacion streaming y soporte multilingue:
+  https://github.com/QwenLM/Qwen3-TTS
+- Piper: TTS local rapido para una alternativa liviana en VPS si Qwen3-TTS resulta pesado:
+  https://github.com/rhasspy/piper
 
 ## Runtime ADK-aligned y prompt modular
 

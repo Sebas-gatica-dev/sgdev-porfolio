@@ -104,26 +104,26 @@ export const capabilityLayers: RuntimeLayer[] = [
 
 export const qualityGates: QualityGate[] = [
   {
-    title: 'Experiencia clara',
-    detail: 'El visitante puede probar flujos reales sin leer codigo ni contexto interno.',
+    title: 'Requerimientos claros',
+    detail: 'Lo mas importante es detectar la necesidad o el problema, y buscar a traves del desarrollo y las posibilidades de la IA, soluciones que hagan de todo algo mas optimo.',
     metric: 'Demo-first UX',
     icon: Workflow,
   },
   {
     title: 'Criterio de IA',
-    detail: 'Respuestas acotadas por rol, fallback local y comportamiento editable desde archivos.',
+    detail: 'Aumento de productividad del desarrollo potenciado con IA, y criterio de calidad e iteracion escalable.',
     metric: 'Confiable',
     icon: Code2,
   },
   {
-    title: 'Acciones seguras',
-    detail: 'Nada sensible se promete por texto si no pasa por herramienta o confirmacion.',
+    title: 'Seguridad y control',
+    detail: 'Garantizo lo estandares de ciberseguridad indispensables para el entorno de producción.',
     metric: 'Human-in-loop',
     icon: ShieldCheck,
   },
   {
-    title: 'Demo deployable',
-    detail: 'Fallback local, limites por IP y configuracion por entorno para no romper la prueba.',
+    title: 'Deploy cloud',
+    detail: 'Despliegue en VPS o servicio en la nube, integracion continua y despliegue automatizado.',
     metric: 'Production-minded',
     icon: Cloud,
   },
@@ -146,7 +146,7 @@ export const demoPlaybooks: Record<string, DemoPlaybook> = {
   },
   documents: {
     agent: 'Document intelligence specialist',
-    workflow: 'PDF efimero -> resumen estructurado -> descarga TXT',
+    workflow: 'PDF analist -> resumen estructurado -> descarga TXT',
     tools: 'Responses API con input_file, max 10 MB, store=false',
     state: 'Archivo solo en request, metadata de resumen',
     evaluation: 'Hechos del documento, dudas separadas, sin inventar contexto',
