@@ -2738,6 +2738,15 @@ main {
   min-width: 0;
 }
 
+.message-assistant .message-bubble {
+  border-color: rgba(56, 103, 214, 0.18);
+  padding: 0.95rem 1rem;
+  background:
+    linear-gradient(135deg, rgba(20, 184, 200, 0.08), transparent 36%),
+    linear-gradient(180deg, var(--surface), var(--surface-muted));
+  box-shadow: 0 12px 28px rgba(8, 17, 31, 0.06);
+}
+
 .message-user .message-bubble {
   background: var(--selection-bg);
   color: var(--heading);
@@ -2753,40 +2762,255 @@ main {
 }
 
 .assistant-content {
-  display: grid;
-  gap: 0.55rem;
+  color: var(--muted);
+  font-size: 0.96rem;
+  line-height: 1.62;
+  overflow-wrap: anywhere;
 }
 
 .assistant-content h4,
 .assistant-content p,
 .assistant-content ul,
-.assistant-content ol {
+.assistant-content ol,
+.assistant-content blockquote,
+.assistant-content pre,
+.assistant-content table {
   margin: 0;
 }
 
-.assistant-content h4 {
+.assistant-content > * + * {
+  margin-top: 0.95rem;
+}
+
+.assistant-content > h4 + *,
+.assistant-content > .assistant-marker-line + * {
+  margin-top: 0.62rem;
+}
+
+.assistant-content > ul + *,
+.assistant-content > ol + *,
+.assistant-content > .assistant-code-block + *,
+.assistant-content > blockquote + * {
+  margin-top: 1.12rem;
+}
+
+.assistant-content h4,
+.assistant-marker-line {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   color: var(--heading);
-  font-size: 0.96rem;
+  line-height: 1.25;
   letter-spacing: 0;
+}
+
+.assistant-content h4 {
+  font-size: 1rem;
+}
+
+.assistant-marker-line {
+  font-size: 0.95rem;
+  font-weight: 850;
+}
+
+.assistant-content h4::before,
+.assistant-marker-line::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: var(--cyan);
+  box-shadow: 0 0 0 4px rgba(20, 184, 200, 0.12);
 }
 
 .assistant-content p,
 .assistant-content li {
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.62;
+}
+
+.assistant-content strong {
+  color: var(--heading);
+  font-weight: 900;
+}
+
+.assistant-content em {
+  color: var(--body-strong);
 }
 
 .assistant-content ul,
 .assistant-content ol {
   display: grid;
-  gap: 0.32rem;
-  padding-left: 1.15rem;
+  gap: 0.68rem;
+  padding-left: 0;
+  list-style: none;
+}
+
+.assistant-content li {
+  position: relative;
+  min-width: 0;
+  padding-left: 1.35rem;
+}
+
+.assistant-content li > * + * {
+  margin-top: 0.58rem;
+}
+
+.assistant-content ul > li::before {
+  content: "";
+  position: absolute;
+  top: 0.68em;
+  left: 0.15rem;
+  width: 0.42rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(20, 184, 200, 0.1);
+}
+
+.assistant-content ol {
+  counter-reset: assistant-step;
+}
+
+.assistant-content ol > li {
+  counter-increment: assistant-step;
+  padding-left: 2rem;
+}
+
+.assistant-content ol > li::before {
+  content: counter(assistant-step);
+  position: absolute;
+  top: 0.12rem;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 1.3rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba(56, 103, 214, 0.28);
+  border-radius: 999px;
+  background: rgba(56, 103, 214, 0.1);
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.assistant-content li > ul,
+.assistant-content li > ol {
+  margin-top: 0.64rem;
+}
+
+.assistant-content a {
+  color: var(--blue);
+  font-weight: 850;
+  text-decoration: underline;
+  text-decoration-color: rgba(56, 103, 214, 0.34);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.assistant-content a:hover {
+  text-decoration-color: currentColor;
+}
+
+.assistant-content :not(pre) > code {
+  border: 1px solid rgba(56, 103, 214, 0.18);
+  border-radius: 6px;
+  padding: 0.08rem 0.28rem;
+  background: rgba(56, 103, 214, 0.1);
+  color: var(--heading);
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.assistant-code-block {
+  overflow-x: auto;
+  border: 1px solid rgba(20, 184, 200, 0.2);
+  border-radius: 8px;
+  padding: 0.95rem;
+  background:
+    linear-gradient(180deg, rgba(20, 184, 200, 0.08), transparent),
+    #07101d;
+  color: #e6edf3;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.assistant-code-block:focus {
+  outline: 2px solid var(--selection-border);
+  outline-offset: 2px;
+}
+
+.assistant-code-block code {
+  display: block;
+  min-width: max-content;
+  color: inherit;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  white-space: pre;
+}
+
+.assistant-content blockquote {
+  border-left: 3px solid var(--cyan);
+  padding: 0.1rem 0 0.1rem 0.85rem;
+  color: var(--body);
+}
+
+.assistant-content blockquote p {
+  color: inherit;
+}
+
+.assistant-content table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.assistant-content th,
+.assistant-content td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.58rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.assistant-content th {
+  background: var(--surface-muted);
+  color: var(--heading);
+  font-weight: 900;
+}
+
+.assistant-content tr:last-child td {
+  border-bottom: 0;
+}
+
+.assistant-content hr {
+  height: 1px;
+  border: 0;
+  margin: 0.85rem 0;
+  background: var(--line);
 }
 
 .message-user .assistant-content p,
 .message-user .assistant-content li,
-.message-user .assistant-content h4 {
+.message-user .assistant-content h4,
+.message-user .assistant-marker-line,
+.message-user .assistant-content strong,
+.message-user .assistant-content em {
   color: var(--heading);
+}
+
+.message-user .assistant-content h4::before,
+.message-user .assistant-marker-line::before,
+.message-user .assistant-content ul > li::before {
+  background: var(--blue);
 }
 
 .portfolio-followups {
