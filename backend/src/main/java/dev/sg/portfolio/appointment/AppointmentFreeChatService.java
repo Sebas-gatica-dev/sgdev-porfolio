@@ -139,7 +139,7 @@ public class AppointmentFreeChatService {
         boolean reschedule = parsed.rescheduleIntent() || (pending != null && pending.reschedule());
         boolean confirmationForPending = parsed.confirmationIntent() && pending != null;
 
-        if (date != null && time == null) {
+        if (date != null && time == null && !parsed.hasTimeWindow()) {
             pendingAppointments.put(
                     sessionId,
                     new PendingAppointment(effectiveConsultationType, date, null, patientName, reschedule)
@@ -260,6 +260,7 @@ public class AppointmentFreeChatService {
                 || parsed.rescheduleIntent()
                 || parsed.date() != null
                 || parsed.time() != null
+                || parsed.hasTimeWindow()
                 || exactSlot;
 
         AvailabilitySearchResponse availability = shouldCheckAvailability
@@ -352,15 +353,16 @@ public class AppointmentFreeChatService {
     ) {
         LocalDate dateFrom = parsed.date() == null ? LocalDate.now() : parsed.date();
         LocalDate dateTo = parsed.date() == null ? dateFrom.plusDays(14) : parsed.date();
-        LocalTime timeTo = parsed.time() == null ? null : parsed.time().plusMinutes(30);
+        LocalTime preferredTimeFrom = parsed.time() == null ? parsed.preferredTimeFrom() : parsed.time();
+        LocalTime preferredTimeTo = parsed.time() == null ? parsed.preferredTimeTo() : parsed.time().plusMinutes(30);
         return appointmentDemoService.searchAvailability(
                 new AvailabilitySearchRequest(
                         sessionId,
                         consultationType,
                         dateFrom.toString(),
                         dateTo.toString(),
-                        parsed.time() == null ? null : parsed.time().toString(),
-                        timeTo == null ? null : timeTo.toString()
+                        preferredTimeFrom == null ? null : preferredTimeFrom.toString(),
+                        preferredTimeTo == null ? null : preferredTimeTo.toString()
                 )
         );
     }
@@ -495,6 +497,7 @@ public class AppointmentFreeChatService {
         String normalized = normalize(message);
         LocalDate date = extractDate(message, normalized);
         LocalTime time = extractTime(message, normalized);
+        TimeWindow timeWindow = extractTimeWindow(normalized, time);
         String patientName = extractPatientName(message);
         boolean rescheduleIntent = containsAny(normalized, "reprogram", "cambiar", "mover", "pasar", "modificar");
         boolean confirmationIntent = containsAny(
@@ -516,6 +519,8 @@ public class AppointmentFreeChatService {
         return new ParsedAppointmentMessage(
                 date,
                 time,
+                timeWindow.from(),
+                timeWindow.to(),
                 patientName,
                 availabilityIntent,
                 bookingIntent,
@@ -610,6 +615,22 @@ public class AppointmentFreeChatService {
         return LocalTime.of(hour, minute);
     }
 
+    private TimeWindow extractTimeWindow(String normalized, LocalTime exactTime) {
+        if (exactTime != null) {
+            return new TimeWindow(null, null);
+        }
+        if (containsAny(normalized, "por la manana", "a la manana", "de la manana", "primera hora", "temprano")) {
+            return new TimeWindow(LocalTime.of(8, 0), LocalTime.of(13, 0));
+        }
+        if (containsAny(normalized, "por la tarde", "a la tarde", "de la tarde", "despues del mediodia")) {
+            return new TimeWindow(LocalTime.of(14, 0), LocalTime.of(18, 0));
+        }
+        if (containsAny(normalized, "al mediodia", "cerca del mediodia")) {
+            return new TimeWindow(LocalTime.of(12, 0), LocalTime.of(13, 0));
+        }
+        return new TimeWindow(null, null);
+    }
+
     private String extractPatientName(String message) {
         Matcher patientMatcher = PATIENT_NAME_PATTERN.matcher(message);
         if (patientMatcher.find()) {
@@ -642,7 +663,7 @@ public class AppointmentFreeChatService {
     private String cleanPatientName(String value) {
         return value
                 .replaceAll("(?iu)^\\s*(?:el|la)\\s+paciente\\s+", "")
-                .replaceAll("(?iu)\\s+(?:el|la|los|las|manana|maÃ±ana|mañana|hoy|pasado|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|a|con|y|para|por|turno|consulta|horario)\\b.*$", "")
+                .replaceAll("(?iu)\\s+(?:el|la|los|las|manana|mañana|hoy|pasado|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|a|con|y|para|por|turno|consulta|horario)\\b.*$", "")
                 .replaceAll("[^\\p{L}\\s'-]", " ")
                 .replaceAll("\\s+", " ")
                 .trim();
@@ -651,6 +672,12 @@ public class AppointmentFreeChatService {
     private boolean validPatientName(String candidate) {
         String normalized = normalize(candidate);
         if (!StringUtils.hasText(candidate)) {
+            return false;
+        }
+        if (firstGivenName(candidate).length() < 2) {
+            return false;
+        }
+        if (List.of("a", "al", "de", "del", "confirmo", "confirma", "confirmar", "dale", "ok", "si").contains(normalized)) {
             return false;
         }
         if (containsAny(
@@ -668,12 +695,7 @@ public class AppointmentFreeChatService {
                 "jueves",
                 "viernes",
                 "sabado",
-                "domingo",
-                "confirmo",
-                "confirma",
-                "confirmar",
-                "dale",
-                "ok"
+                "domingo"
         )) {
             return false;
         }
@@ -1021,6 +1043,8 @@ public class AppointmentFreeChatService {
     private record ParsedAppointmentMessage(
             LocalDate date,
             LocalTime time,
+            LocalTime preferredTimeFrom,
+            LocalTime preferredTimeTo,
             String patientName,
             boolean availabilityIntent,
             boolean bookingIntent,
@@ -1038,6 +1062,8 @@ public class AppointmentFreeChatService {
             return new ParsedAppointmentMessage(
                     nextDate,
                     nextTime,
+                    preferredTimeFrom,
+                    preferredTimeTo,
                     nextPatientName,
                     availabilityIntent,
                     nextBookingIntent,
@@ -1046,6 +1072,13 @@ public class AppointmentFreeChatService {
                     farewellIntent
             );
         }
+
+        private boolean hasTimeWindow() {
+            return preferredTimeFrom != null && preferredTimeTo != null;
+        }
+    }
+
+    private record TimeWindow(LocalTime from, LocalTime to) {
     }
 
     private record PendingAppointment(
