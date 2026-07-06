@@ -2,7 +2,7 @@ import {
   AudioLines,
   CalendarDays,
   CheckCircle2,
-  Database,
+  CircleHelp,
   HeartPulse,
   LoaderCircle,
   MicOff,
@@ -16,16 +16,32 @@ import {
   bookAppointment,
   createAppointmentVoiceSession,
   findAvailableAppointments,
-  getAppointmentActivity,
   getAppointmentSchedule,
   getPortfolioHealth,
   rescheduleAppointment,
-  type AppointmentActivity,
+  streamAppointmentFreeResponse,
+  type AppointmentToolEvent,
   type AppointmentConsultationType,
   type AppointmentSchedule,
+  type ChatRuntime,
 } from '../api/agentClient'
-
-type CallStatus = 'idle' | 'ringing' | 'connecting' | 'live' | 'error'
+import {
+  browserSpeechSupported,
+  callMessageLabel,
+  callStatusLabel,
+  type CallMessageRole,
+  type CallStatus,
+  delay,
+  formatShortDate,
+  formatTime,
+  formatWeekday,
+  friendlyCallError,
+  getSpeechRecognitionConstructor,
+  normalizeSpokenText,
+  optionalStringArg,
+  parseToolArguments,
+  stringArg,
+} from './appointments/medicalAppointmentUtils'
 
 type ConsultationOption = {
   id: AppointmentConsultationType
@@ -37,7 +53,7 @@ type ConsultationOption = {
 
 type CallMessage = {
   id: string
-  role: 'system' | 'assistant' | 'user'
+  role: CallMessageRole
   content: string
 }
 
@@ -73,18 +89,24 @@ const consultationOptions: ConsultationOption[] = [
 ]
 
 const VOICE_DEMO_LIMIT_MS = 60_000
+const openAiLogoSrc = `${import.meta.env.BASE_URL}openai-logo.svg`
+const qwenLogoSrc = `${import.meta.env.BASE_URL}qwen-logo.svg`
 
 export function MedicalAppointmentDemo() {
   const [selectedConsultationId, setSelectedConsultationId] =
     useState<AppointmentConsultationType>('traumatology')
   const [voiceConfigured, setVoiceConfigured] = useState<boolean | null>(null)
+  const [openAiVoiceAvailable, setOpenAiVoiceAvailable] = useState<boolean | null>(null)
+  const [openAiVoiceTokenCost, setOpenAiVoiceTokenCost] = useState(10)
+  const [qwenConfigured, setQwenConfigured] = useState<boolean | null>(null)
+  const [qwenModel, setQwenModel] = useState('qwen3:0.6b')
+  const [callRuntime, setCallRuntime] = useState<ChatRuntime>('openai')
   const [status, setStatus] = useState<CallStatus>('idle')
   const [model, setModel] = useState<string | null>(null)
   const [liveTranscript, setLiveTranscript] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [schedule, setSchedule] = useState<AppointmentSchedule | null>(null)
   const [scheduleError, setScheduleError] = useState<string | null>(null)
-  const [activity, setActivity] = useState<AppointmentActivity[]>([])
   const [availabilityChecked, setAvailabilityChecked] = useState(false)
   const [appointmentBooked, setAppointmentBooked] = useState(false)
   const [appointmentRescheduled, setAppointmentRescheduled] = useState(false)
@@ -102,6 +124,11 @@ export function MedicalAppointmentDemo() {
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null)
+  const browserRecognitionRef = useRef<SpeechRecognition | null>(null)
+  const callLogRef = useRef<HTMLDivElement | null>(null)
+  const browserCallActiveRef = useRef(false)
+  const browserRestartTimeoutRef = useRef<number | null>(null)
+  const freeTurnPendingRef = useRef(false)
   const assistantMessageIdRef = useRef<string | null>(null)
   const processedUserItemsRef = useRef<Set<string>>(new Set())
   const processedToolCallsRef = useRef<Set<string>>(new Set())
@@ -114,20 +141,26 @@ export function MedicalAppointmentDemo() {
     [selectedConsultationId],
   )
   const callActive = ['ringing', 'connecting', 'live'].includes(status)
+  const browserSpeechAvailable = browserSpeechSupported()
 
   useEffect(() => {
     getPortfolioHealth()
       .then((health) => {
         setVoiceConfigured(health.voiceConfigured)
-        if (!health.voiceConfigured) {
-          setStatus('error')
-          setError('Configura OPENAI_API_KEY en el backend para activar esta demo de voz.')
+        setOpenAiVoiceAvailable(health.openaiVoiceAvailable)
+        setOpenAiVoiceTokenCost(health.openaiVoiceTokenCost || health.openaiVoiceCreditCost || 10)
+        setQwenConfigured(health.freeModelConfigured)
+        setQwenModel(health.freeModelName || 'qwen3:0.6b')
+        if (!health.openaiVoiceAvailable || !health.voiceConfigured) {
+          setCallRuntime('free')
         }
       })
       .catch(() => {
         setVoiceConfigured(false)
-        setStatus('error')
-        setError('No pude leer el estado del backend de voz.')
+        setOpenAiVoiceAvailable(false)
+        setQwenConfigured(false)
+        setCallRuntime('free')
+        setError('No pude leer el estado del backend; Qwen usara fallback local si esta disponible.')
       })
 
     void refreshPanels()
@@ -137,14 +170,17 @@ export function MedicalAppointmentDemo() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!callLogRef.current) {
+      return
+    }
+    callLogRef.current.scrollTop = callLogRef.current.scrollHeight
+  }, [messages, liveTranscript])
+
   async function refreshPanels() {
     try {
-      const [nextSchedule, nextActivity] = await Promise.all([
-        getAppointmentSchedule(sessionIdRef.current),
-        getAppointmentActivity(sessionIdRef.current),
-      ])
+      const nextSchedule = await getAppointmentSchedule(sessionIdRef.current)
       setSchedule(nextSchedule)
-      setActivity(nextActivity)
       setScheduleError(null)
     } catch (panelError) {
       setScheduleError(
@@ -160,19 +196,23 @@ export function MedicalAppointmentDemo() {
       stopCall()
       return
     }
-    await startCall()
+    if (callRuntime === 'free') {
+      startFreeCall()
+      return
+    }
+    await startOpenAiCall()
   }
 
-  async function startCall() {
+  async function startOpenAiCall() {
     if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
       setStatus('error')
       setError('Este navegador no permite audio WebRTC desde esta pagina.')
       return
     }
 
-    if (voiceConfigured === false) {
-      setStatus('error')
-      setError('Configura OPENAI_API_KEY en el backend para activar esta demo de voz.')
+    if (voiceConfigured === false || openAiVoiceAvailable === false) {
+      setCallRuntime('free')
+      startFreeCall()
       return
     }
 
@@ -277,6 +317,221 @@ export function MedicalAppointmentDemo() {
     }
   }
 
+  function startFreeCall() {
+    const SpeechRecognition = getSpeechRecognitionConstructor()
+    if (!SpeechRecognition) {
+      setStatus('error')
+      setError(
+        'Este navegador no ofrece Web Speech para la llamada gratuita. Proba Chrome, Edge o Safari.',
+      )
+      return
+    }
+
+    cleanupCall()
+    browserCallActiveRef.current = true
+    freeTurnPendingRef.current = false
+    setCallRuntime('free')
+    setError(null)
+    setLiveTranscript('')
+    setStatus('ringing')
+    setModel(`${qwenModel} + Web Speech`)
+    setAvailabilityChecked(false)
+    setAppointmentBooked(false)
+    setAppointmentRescheduled(false)
+    assistantMessageIdRef.current = null
+    processedUserItemsRef.current = new Set()
+    processedToolCallsRef.current = new Set()
+    setMessages([
+      {
+        id: crypto.randomUUID(),
+        role: 'system',
+        content: `Llamada gratuita: ${selectedConsultation.title}. Web Speech escucha, Qwen responde y las tools actualizan la agenda real.`,
+      },
+    ])
+
+    window.setTimeout(() => {
+      if (!browserCallActiveRef.current) {
+        return
+      }
+      setStatus('live')
+      startFreeListening()
+    }, 450)
+  }
+
+  function startFreeListening() {
+    if (!browserCallActiveRef.current || freeTurnPendingRef.current) {
+      return
+    }
+
+    const SpeechRecognition = getSpeechRecognitionConstructor()
+    if (!SpeechRecognition) {
+      setStatus('error')
+      setError('Web Speech dejo de estar disponible en este navegador.')
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    browserRecognitionRef.current = recognition
+    recognition.lang = 'es-AR'
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.maxAlternatives = 1
+
+    let finalTranscript = ''
+    let latestTranscript = ''
+
+    recognition.onresult = (event) => {
+      let interimTranscript = ''
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index]
+        const transcript = result[0]?.transcript || ''
+        if (result.isFinal) {
+          finalTranscript = [finalTranscript, transcript].filter(Boolean).join(' ')
+        } else {
+          interimTranscript = [interimTranscript, transcript].filter(Boolean).join(' ')
+        }
+      }
+
+      latestTranscript = normalizeSpokenText(
+        [finalTranscript, interimTranscript].filter(Boolean).join(' '),
+      )
+      setLiveTranscript(latestTranscript)
+    }
+
+    recognition.onerror = (event) => {
+      if (event.error === 'no-speech') {
+        return
+      }
+      setStatus('error')
+      setError(`La llamada gratuita se pauso (${event.error}).`)
+      cleanupBrowserCall()
+    }
+
+    recognition.onend = () => {
+      if (!browserCallActiveRef.current || browserRecognitionRef.current !== recognition) {
+        return
+      }
+
+      browserRecognitionRef.current = null
+      const clean = normalizeSpokenText(finalTranscript || latestTranscript)
+      if (clean) {
+        setLiveTranscript('')
+        appendUserMessage(`free-${crypto.randomUUID()}`, clean)
+        void submitFreeAppointmentTurn(clean)
+        return
+      }
+
+      restartFreeListening(600)
+    }
+
+    try {
+      recognition.start()
+      setStatus('live')
+    } catch (speechError) {
+      setStatus('error')
+      setError(
+        speechError instanceof Error
+          ? speechError.message
+          : 'No se pudo escuchar con Web Speech.',
+      )
+    }
+  }
+
+  async function submitFreeAppointmentTurn(prompt: string) {
+    if (!browserCallActiveRef.current || !prompt.trim()) {
+      return
+    }
+
+    freeTurnPendingRef.current = true
+    const assistantId = crypto.randomUUID()
+    let assistantText = ''
+    setMessages((current) => [
+      ...current,
+      { id: assistantId, role: 'assistant', content: '' },
+    ])
+
+    try {
+      await streamAppointmentFreeResponse(
+        {
+          message: prompt,
+          sessionId: sessionIdRef.current,
+          consultationType: selectedConsultation.id,
+        },
+        {
+          onTool: handleFreeAppointmentTool,
+          onChunk: (text) => {
+            assistantText += text
+            appendAssistantChunk(assistantId, text)
+          },
+          onDone: () => {
+            void refreshPanels()
+          },
+        },
+      )
+    } catch (freeError) {
+      assistantText = freeError instanceof Error ? freeError.message : 'No se pudo responder con Qwen.'
+      appendAssistantChunk(assistantId, `No pude responder con Qwen: ${assistantText}`)
+    } finally {
+      freeTurnPendingRef.current = false
+      void refreshPanels()
+    }
+
+    speakFreeAppointmentReply(assistantText)
+  }
+
+  function handleFreeAppointmentTool(tool: AppointmentToolEvent) {
+    if (tool.action === 'availability') {
+      setAvailabilityChecked(true)
+    }
+    if (tool.action === 'book') {
+      setAvailabilityChecked(true)
+      setAppointmentBooked(true)
+    }
+    if (tool.action === 'reschedule') {
+      setAvailabilityChecked(true)
+      setAppointmentBooked(true)
+      setAppointmentRescheduled(true)
+    }
+  }
+
+  function appendAssistantChunk(assistantId: string, text: string) {
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === assistantId
+          ? { ...message, content: `${message.content}${text}` }
+          : message,
+      ),
+    )
+  }
+
+  function speakFreeAppointmentReply(text: string) {
+    if (!browserCallActiveRef.current) {
+      return
+    }
+
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      setError('Tu navegador no tiene text-to-speech local; sigo respondiendo por texto.')
+      restartFreeListening(600)
+      return
+    }
+
+    const speechText = prepareSpeechText(text)
+    if (!speechText) {
+      restartFreeListening(350)
+      return
+    }
+
+    const utterance = new SpeechSynthesisUtterance(speechText)
+    utterance.lang = 'es-AR'
+    utterance.rate = 1
+    utterance.pitch = 1
+    utterance.onend = () => restartFreeListening(350)
+    utterance.onerror = () => restartFreeListening(350)
+
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utterance)
+  }
+
   function stopCall() {
     cleanupCall()
     setStatus('idle')
@@ -296,7 +551,7 @@ export function MedicalAppointmentDemo() {
       setStatus('idle')
       setLiveTranscript('')
       assistantMessageIdRef.current = null
-      setError('Se cumplio el minuto de demo de voz. Esta sesion consumio 5 creditos.')
+      setError(`Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceTokenCost} tokens.`)
       setMessages((current) => [
         ...current,
         {
@@ -477,6 +732,7 @@ export function MedicalAppointmentDemo() {
 
   function cleanupCall() {
     clearDemoLimit()
+    cleanupBrowserCall()
 
     dataChannelRef.current?.removeEventListener('message', handleRealtimeEvent)
     dataChannelRef.current?.close()
@@ -495,6 +751,44 @@ export function MedicalAppointmentDemo() {
     }
   }
 
+  function cleanupBrowserCall() {
+    if (browserRestartTimeoutRef.current !== null) {
+      window.clearTimeout(browserRestartTimeoutRef.current)
+      browserRestartTimeoutRef.current = null
+    }
+
+    browserCallActiveRef.current = false
+    freeTurnPendingRef.current = false
+
+    const recognition = browserRecognitionRef.current
+    browserRecognitionRef.current = null
+    if (recognition) {
+      recognition.onend = null
+      recognition.onerror = null
+      recognition.onresult = null
+      try {
+        recognition.abort()
+      } catch {
+        // Some browsers throw if recognition was already stopped.
+      }
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+    }
+  }
+
+  function restartFreeListening(delayMs: number) {
+    if (browserRestartTimeoutRef.current !== null) {
+      window.clearTimeout(browserRestartTimeoutRef.current)
+    }
+
+    browserRestartTimeoutRef.current = window.setTimeout(() => {
+      browserRestartTimeoutRef.current = null
+      startFreeListening()
+    }, delayMs)
+  }
+
   return (
     <div className="appointment-demo-shell">
       <div className="appointment-demo-grid">
@@ -507,7 +801,65 @@ export function MedicalAppointmentDemo() {
                 <PhoneCall size={34} />
               )}
             </div>
-            <span className={`call-status call-status-${status}`}>{callStatusLabel(status)}</span>
+            <div className="appointment-call-tools">
+              <span className={`call-status call-status-${status}`}>{callStatusLabel(status)}</span>
+              <div className="appointment-flow-help">
+                <button
+                  type="button"
+                  aria-label="Ver flujo guiado"
+                  aria-describedby="appointment-flow-tooltip"
+                >
+                  <CircleHelp size={18} />
+                </button>
+                <div
+                  className="appointment-flow-tooltip appointment-steps-card"
+                  id="appointment-flow-tooltip"
+                  role="tooltip"
+                >
+                  <div className="appointment-panel-heading">
+                    <CheckCircle2 size={18} />
+                    <strong>Flujo guiado</strong>
+                  </div>
+                  <ol>
+                    <li data-done="true">
+                      <span>1</span>
+                      <div>
+                        <strong>Especialidad elegida</strong>
+                        <p>{selectedConsultation.title}</p>
+                      </div>
+                    </li>
+                    <li data-done={callActive || appointmentBooked}>
+                      <span>2</span>
+                      <div>
+                        <strong>Llamada iniciada</strong>
+                        <p>El agente toma la disponibilidad del paciente.</p>
+                      </div>
+                    </li>
+                    <li data-done={availabilityChecked || appointmentBooked}>
+                      <span>3</span>
+                      <div>
+                        <strong>Agenda consultada</strong>
+                        <p>Busca turnos reales antes de responder.</p>
+                      </div>
+                    </li>
+                    <li data-done={appointmentBooked}>
+                      <span>4</span>
+                      <div>
+                        <strong>Turno persistido</strong>
+                        <p>La reserva aparece en el calendario en tiempo real.</p>
+                      </div>
+                    </li>
+                    <li data-done={appointmentRescheduled}>
+                      <span>5</span>
+                      <div>
+                        <strong>Reprogramacion</strong>
+                        <p>Si cambia de opinion, actualiza el mismo turno.</p>
+                      </div>
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </div>
           </div>
 
           <h3>Agente de reserva de turnos</h3>
@@ -537,11 +889,59 @@ export function MedicalAppointmentDemo() {
           </div>
 
           <div className="call-controls">
+            <div
+              className="appointment-runtime-toggle runtime-provider-toggle"
+              role="radiogroup"
+              aria-label="Proveedor de la llamada"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={callRuntime === 'openai'}
+                className={callRuntime === 'openai' ? 'runtime-provider-active' : undefined}
+                onClick={() => setCallRuntime('openai')}
+                disabled={callActive || voiceConfigured === false || openAiVoiceAvailable === false}
+                title={
+                  openAiVoiceAvailable === false || voiceConfigured === false
+                    ? 'OpenAI Realtime no esta disponible; usa Qwen.'
+                    : 'Usar OpenAI Realtime'
+                }
+              >
+                <span className="runtime-provider-logo-frame">
+                  <img src={openAiLogoSrc} alt="" aria-hidden="true" />
+                </span>
+                OpenAI
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={callRuntime === 'free'}
+                className={callRuntime === 'free' ? 'runtime-provider-active' : undefined}
+                onClick={() => setCallRuntime('free')}
+                disabled={callActive}
+                title={
+                  browserSpeechAvailable
+                    ? qwenConfigured === false
+                      ? 'Qwen local no esta activo; usara fallback demo con Web Speech.'
+                      : `Usar ${qwenModel} con Web Speech`
+                    : 'Este navegador no soporta Web Speech.'
+                }
+              >
+                <span className="runtime-provider-logo-frame">
+                  <img src={qwenLogoSrc} alt="" aria-hidden="true" />
+                </span>
+                Qwen
+              </button>
+            </div>
             <button
               type="button"
               className="call-action"
               onClick={toggleCall}
-              disabled={voiceConfigured === false || status === 'connecting'}
+              disabled={
+                status === 'connecting' ||
+                (callRuntime === 'openai' &&
+                  (voiceConfigured === false || openAiVoiceAvailable === false))
+              }
             >
               {status === 'connecting' || status === 'ringing' ? (
                 <LoaderCircle className="spin" size={18} />
@@ -550,18 +950,33 @@ export function MedicalAppointmentDemo() {
               ) : (
                 <PhoneCall size={18} />
               )}
-              {callActive ? 'Cortar simulacion' : 'Iniciar llamada'}
+              {callActive
+                ? 'Cortar simulacion'
+                : callRuntime === 'free'
+                  ? 'Iniciar llamada gratis'
+                  : 'Iniciar llamada'}
             </button>
-            <span className="call-model-pill">Modelo mini: {model || 'gpt-realtime-mini'}</span>
+            <span className="call-model-pill">
+              Modelo: {callRuntime === 'free' ? `${qwenModel} + Web Speech` : model || 'gpt-realtime-mini'}
+            </span>
           </div>
 
           {error && <p className="call-error">{error}</p>}
 
-          <div className="call-log" aria-live="polite">
+          <div className="call-log" ref={callLogRef} aria-live="polite">
             {messages.map((message) => (
               <div className={`call-message call-message-${message.role}`} key={message.id}>
                 <strong>{callMessageLabel(message.role)}</strong>
-                <span>{message.content}</span>
+                <span>
+                  {message.role === 'assistant' && !message.content.trim() ? (
+                    <span className="call-agent-thinking" role="status">
+                      <LoaderCircle className="spin" size={16} />
+                      Procesando respuesta...
+                    </span>
+                  ) : (
+                    message.content
+                  )}
+                </span>
               </div>
             ))}
             {liveTranscript && (
@@ -575,73 +990,6 @@ export function MedicalAppointmentDemo() {
             )}
           </div>
         </article>
-
-        <section className="appointment-steps-card">
-          <div className="appointment-panel-heading">
-            <CheckCircle2 size={18} />
-            <strong>Flujo guiado</strong>
-          </div>
-          <ol>
-            <li data-done="true">
-              <span>1</span>
-              <div>
-                <strong>Especialidad elegida</strong>
-                <p>{selectedConsultation.title}</p>
-              </div>
-            </li>
-            <li data-done={callActive || appointmentBooked}>
-              <span>2</span>
-              <div>
-                <strong>Llamada iniciada</strong>
-                <p>El agente toma la disponibilidad del paciente.</p>
-              </div>
-            </li>
-            <li data-done={availabilityChecked || appointmentBooked}>
-              <span>3</span>
-              <div>
-                <strong>Agenda consultada</strong>
-                <p>Busca turnos reales antes de responder.</p>
-              </div>
-            </li>
-            <li data-done={appointmentBooked}>
-              <span>4</span>
-              <div>
-                <strong>Turno persistido</strong>
-                <p>La reserva aparece en el calendario en tiempo real.</p>
-              </div>
-            </li>
-            <li data-done={appointmentRescheduled}>
-              <span>5</span>
-              <div>
-                <strong>Reprogramacion</strong>
-                <p>Si cambia de opinion, actualiza el mismo turno.</p>
-              </div>
-            </li>
-          </ol>
-        </section>
-
-        <section className="appointment-activity-card">
-          <div className="appointment-panel-heading">
-            <Database size={18} />
-            <strong>Actividad en base de datos</strong>
-          </div>
-          {activity.length === 0 ? (
-            <p className="appointment-empty-copy">
-              Todavia no hubo operaciones en esta llamada. Cuando el agente consulte o guarde,
-              apareceran aca.
-            </p>
-          ) : (
-            <div className="appointment-activity-list">
-              {activity.map((item) => (
-                <article key={`${item.createdAt}-${item.action}-${item.detail}`}>
-                  <span>{item.action}</span>
-                  <strong>{item.detail}</strong>
-                  <time>{formatDateTime(item.createdAt)}</time>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
       </div>
 
       <section className="appointment-calendar-card">
@@ -706,86 +1054,72 @@ export function MedicalAppointmentDemo() {
   )
 }
 
-function parseToolArguments(value?: string) {
-  if (!value?.trim()) {
-    return {} as Record<string, unknown>
-  }
-  try {
-    return JSON.parse(value) as Record<string, unknown>
-  } catch {
-    return {} as Record<string, unknown>
-  }
+function prepareSpeechText(value: string) {
+  return normalizeSpokenText(
+    stripSpeechText(value)
+      .replace(
+        /\b(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\b/g,
+        (_, year: string, month: string, day: string, hour: string, minute: string) =>
+          `${dateForSpeech(year, month, day)} a las ${timeForSpeech(hour, minute)}`,
+      )
+      .replace(
+        /\b(\d{4})-(\d{2})-(\d{2})(\d{1,2}):(\d{2})\b/g,
+        (_, year: string, month: string, day: string, hour: string, minute: string) =>
+          `${dateForSpeech(year, month, day)} a las ${timeForSpeech(hour, minute)}`,
+      )
+      .replace(
+        /\b(\d{4})-(\d{2})-(\d{2})\b/g,
+        (_, year: string, month: string, day: string) => dateForSpeech(year, month, day),
+      )
+      .replace(
+        /\b(\d{1,2}):(\d{2})\b/g,
+        (_, hour: string, minute: string) => timeForSpeech(hour, minute),
+      )
+      .replace(/[\[\]{}()]/g, ' ')
+      .replace(/[|*_#>]/g, ' ')
+      .replace(/\s*[-–—]\s*/g, ' ')
+      .replace(/(\p{L})(\d)/gu, '$1 $2')
+      .replace(/(\d)(\p{L})/gu, '$1 $2'),
+  )
 }
 
-function stringArg(value: unknown) {
-  return typeof value === 'string' ? value : ''
+function stripSpeechText(value: string) {
+  return normalizeSpokenText(
+    value
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/^#{1,6}\s*/gm, '')
+      .replace(/^\s*[-*]\s+/gm, '')
+      .replace(/\*\*|__/g, '')
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1'),
+  )
 }
 
-function optionalStringArg(value: unknown) {
-  return typeof value === 'string' && value.trim() ? value : undefined
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
-}
-
-function friendlyCallError(error: unknown) {
-  if (error instanceof DOMException && ['NotAllowedError', 'PermissionDeniedError'].includes(error.name)) {
-    return 'Chrome bloqueo el microfono. Permitilo desde el icono del candado/barra de direcciones y volve a intentar.'
+function dateForSpeech(year: string, month: string, day: string) {
+  const date = new Date(`${year}-${month}-${day}T12:00:00`)
+  if (Number.isNaN(date.getTime())) {
+    return `${day}/${month}/${year}`
   }
-
-  if (error instanceof DOMException && error.name === 'NotFoundError') {
-    return 'No encontre un microfono disponible para iniciar la simulacion.'
-  }
-
-  if (error instanceof Error && /permission denied|notallowed/i.test(error.message)) {
-    return 'Chrome bloqueo el microfono. Permitilo desde el icono del candado/barra de direcciones y volve a intentar.'
-  }
-
-  return error instanceof Error ? error.message : 'No se pudo iniciar la simulacion.'
-}
-
-function callStatusLabel(status: CallStatus) {
-  if (status === 'ringing') {
-    return 'Llamando'
-  }
-  if (status === 'connecting') {
-    return 'Conectando'
-  }
-  if (status === 'live') {
-    return 'En simulacion'
-  }
-  if (status === 'error') {
-    return 'Error'
-  }
-  return 'Lista'
-}
-
-function callMessageLabel(role: CallMessage['role']) {
-  if (role === 'assistant') {
-    return 'Agente'
-  }
-  if (role === 'user') {
-    return 'Vos'
-  }
-  return 'Demo'
-}
-
-function formatWeekday(value: string) {
-  return new Intl.DateTimeFormat('es-AR', { weekday: 'short' }).format(new Date(`${value}T12:00:00`))
-}
-
-function formatShortDate(value: string) {
   return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: 'short',
-  }).format(new Date(`${value}T12:00:00`))
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(date)
 }
 
-function formatTime(value: string) {
-  return value.slice(11, 16)
-}
-
-function formatDateTime(value: string) {
-  return `${formatShortDate(value.slice(0, 10))} · ${formatTime(value)}`
+function timeForSpeech(hourValue: string, minuteValue: string) {
+  const hour = Number.parseInt(hourValue, 10)
+  const minute = Number.parseInt(minuteValue, 10)
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return `${hourValue}:${minuteValue}`
+  }
+  const spokenHour = hour % 12 === 0 ? 12 : hour % 12
+  const period = hour === 12 ? 'del mediodia' : hour < 12 ? 'de la mañana' : 'de la tarde'
+  if (minute === 0) {
+    return `${spokenHour} ${period}`
+  }
+  if (minute === 30) {
+    return `${spokenHour} y media ${period}`
+  }
+  return `${spokenHour} y ${minute} ${period}`
 }

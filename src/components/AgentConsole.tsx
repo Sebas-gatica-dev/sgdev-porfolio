@@ -21,16 +21,33 @@ import {
   createVoiceTranscriptionSession,
   FreeModelOffer,
   getPortfolioHealth,
+  getUsageStatus,
+  requestMoreTokens,
   streamAgentResponse,
 } from '../api/agentClient'
+import { FormattedMessage, shouldShowPortfolioFollowUps } from './agent-console/messageFormatting'
+import {
+  audioDetail,
+  audioLabel,
+  audioPanelClass,
+  conversationButtonTitle,
+  formatVoiceAllowance,
+  openAiProviderTitle,
+  type VoiceStatus,
+  voiceButtonTitle,
+} from './agent-console/voiceUi'
+import {
+  browserSpeechSupported,
+  getSpeechRecognitionConstructor,
+  normalizeSpokenText,
+  stripSpeechText,
+} from './shared/speech'
 
 type Message = {
   id: string
   role: 'user' | 'assistant'
   content: string
 }
-
-type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'error'
 
 const VOICE_DEMO_LIMIT_MS = 60_000
 const openAiLogoSrc = `${import.meta.env.BASE_URL}openai-logo.svg`
@@ -86,13 +103,21 @@ export function AgentConsole() {
   const [conversationError, setConversationError] = useState<string | null>(null)
   const [voiceConfigured, setVoiceConfigured] = useState<boolean | null>(null)
   const [openAiVoiceAvailable, setOpenAiVoiceAvailable] = useState<boolean | null>(null)
-  const [openAiVoiceCreditCost, setOpenAiVoiceCreditCost] = useState(5)
+  const [openAiVoiceCreditCost, setOpenAiVoiceCreditCost] = useState(10)
   const [chatRuntime, setChatRuntime] = useState<ChatRuntime>('openai')
   const [openAiConfigured, setOpenAiConfigured] = useState<boolean | null>(null)
   const [qwenConfigured, setQwenConfigured] = useState<boolean | null>(null)
   const [qwenModel, setQwenModel] = useState('qwen3:0.6b')
   const [openAiCreditRemaining, setOpenAiCreditRemaining] = useState<number | null>(null)
+  const [openAiTokenLimit, setOpenAiTokenLimit] = useState<number | null>(null)
+  const [openAiChatTokenCost, setOpenAiChatTokenCost] = useState(10)
+  const [openAiVoiceSecondsRemaining, setOpenAiVoiceSecondsRemaining] = useState<number | null>(null)
+  const [openAiVoiceMaxSeconds, setOpenAiVoiceMaxSeconds] = useState<number | null>(null)
   const [openAiCreditsExhausted, setOpenAiCreditsExhausted] = useState(false)
+  const [quotaModalOpen, setQuotaModalOpen] = useState(false)
+  const [tokenRequestPending, setTokenRequestPending] = useState(false)
+  const [tokenRequestLoading, setTokenRequestLoading] = useState(false)
+  const [tokenRequestMessage, setTokenRequestMessage] = useState<string | null>(null)
   const [freeModelOffer, setFreeModelOffer] = useState<FreeModelOffer | null>(null)
   const [pendingFreePrompt, setPendingFreePrompt] = useState<string | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
@@ -127,10 +152,24 @@ export function AgentConsole() {
         setOpenAiConfigured(health.openaiConfigured)
         setVoiceConfigured(health.voiceConfigured)
         setOpenAiVoiceAvailable(health.openaiVoiceAvailable)
-        setOpenAiVoiceCreditCost(health.openaiVoiceCreditCost || 5)
+        setOpenAiVoiceCreditCost(health.openaiVoiceTokenCost || health.openaiVoiceCreditCost || 10)
+        setOpenAiChatTokenCost(health.promptLimitChatTokenCost || 10)
         setQwenConfigured(health.freeModelConfigured)
         setQwenModel(health.freeModelName || 'qwen3:0.6b')
         setOpenAiCreditRemaining(health.promptLimitEnabled ? health.promptLimitRemaining : null)
+        setOpenAiTokenLimit(
+          health.promptLimitEnabled
+            ? health.promptLimitMaxTokens || health.promptLimitMaxPrompts || null
+            : null,
+        )
+        setOpenAiVoiceSecondsRemaining(
+          health.promptLimitEnabled ? health.openaiVoiceSecondsRemaining : null,
+        )
+        setOpenAiVoiceMaxSeconds(health.promptLimitEnabled ? health.openaiVoiceMaxSeconds : null)
+        setTokenRequestPending(Boolean(health.promptLimitTokenRequestPending))
+        if (health.promptLimitEnabled && health.promptLimitNewVisitor) {
+          setQuotaModalOpen(true)
+        }
         const openAiPromptAvailable = health.openaiPromptAvailable !== false
         setOpenAiCreditsExhausted(health.openaiConfigured && !openAiPromptAvailable)
         const openAiAvailable = health.openaiConfigured && openAiPromptAvailable
@@ -139,10 +178,10 @@ export function AgentConsole() {
         }
         if (!health.openaiVoiceAvailable && health.voiceConfigured && health.openaiConfigured) {
           setVoiceError(
-            `OpenAI Realtime no tiene ${health.openaiVoiceCreditCost || 5} creditos disponibles para voz; el modo gratuito usa dictado del navegador.`,
+            `OpenAI Realtime no tiene ${health.openaiVoiceTokenCost || health.openaiVoiceCreditCost || 10} tokens disponibles para voz; el modo gratuito usa dictado del navegador.`,
           )
           setConversationError(
-            `OpenAI Realtime no tiene ${health.openaiVoiceCreditCost || 5} creditos disponibles para conversar; el modo gratuito usa Qwen.`,
+            `OpenAI Realtime no tiene ${health.openaiVoiceTokenCost || health.openaiVoiceCreditCost || 10} tokens disponibles para conversar; el modo gratuito usa Qwen.`,
           )
         }
       })
@@ -152,6 +191,9 @@ export function AgentConsole() {
         setOpenAiVoiceAvailable(false)
         setQwenConfigured(false)
         setOpenAiCreditRemaining(null)
+        setOpenAiTokenLimit(null)
+        setOpenAiVoiceSecondsRemaining(null)
+        setOpenAiVoiceMaxSeconds(null)
         setOpenAiCreditsExhausted(false)
         setChatRuntime('free')
         setVoiceError('No pude leer el estado del backend de voz.')
@@ -168,6 +210,35 @@ export function AgentConsole() {
         name: 'runtime-clock',
       },
     ]
+  }
+
+  function applyPromptLimitStatus(status: import('../api/agentClient').PromptLimitStatus) {
+    if (!status.enabled) {
+      setOpenAiCreditRemaining(null)
+      setOpenAiTokenLimit(null)
+      setOpenAiVoiceSecondsRemaining(null)
+      setOpenAiVoiceMaxSeconds(null)
+      setTokenRequestPending(false)
+      return
+    }
+
+    setOpenAiCreditRemaining(status.remaining)
+    setOpenAiTokenLimit(status.maxTokens)
+    setOpenAiChatTokenCost(status.chatTokenCost || 10)
+    setOpenAiVoiceCreditCost(status.voiceTokenCost || 10)
+    setOpenAiVoiceSecondsRemaining(status.voiceSecondsRemaining)
+    setOpenAiVoiceMaxSeconds(status.maxVoiceSeconds)
+    setTokenRequestPending(status.tokenRequestPending)
+    setOpenAiVoiceAvailable(
+      status.remaining >= (status.voiceTokenCost || 10) &&
+        status.voiceSecondsRemaining >= (status.voiceSessionSeconds || 60),
+    )
+    if (status.remaining <= 0) {
+      setOpenAiCreditsExhausted(true)
+      setChatRuntime('free')
+    } else {
+      setOpenAiCreditsExhausted(false)
+    }
   }
 
   async function handleSubmit(
@@ -226,14 +297,7 @@ export function AgentConsole() {
             setPendingFreePrompt(clean)
           },
           onPromptLimit: (status) => {
-            if (status.enabled) {
-              setOpenAiCreditRemaining(status.remaining)
-              setOpenAiVoiceAvailable(status.remaining >= openAiVoiceCreditCost)
-            }
-            if (status.enabled && status.remaining <= 0) {
-              setOpenAiCreditsExhausted(true)
-              setChatRuntime('free')
-            }
+            applyPromptLimitStatus(status)
           },
           onChunk: (text) => {
             setMessages((current) =>
@@ -275,6 +339,30 @@ export function AgentConsole() {
 
     setChatRuntime('free')
     void handleSubmit(undefined, pendingFreePrompt, 'free')
+  }
+
+  async function handleRequestMoreTokens() {
+    if (tokenRequestLoading || tokenRequestPending) {
+      return
+    }
+
+    setTokenRequestLoading(true)
+    setTokenRequestMessage(null)
+    try {
+      const response = await requestMoreTokens()
+      setTokenRequestPending(true)
+      setTokenRequestMessage(response.message)
+      const status = await getUsageStatus().catch(() => null)
+      if (status) {
+        applyPromptLimitStatus(status)
+      }
+    } catch (error) {
+      setTokenRequestMessage(
+        error instanceof Error ? error.message : 'No pude solicitar mas tokens.',
+      )
+    } finally {
+      setTokenRequestLoading(false)
+    }
   }
 
   function handleInputKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -925,7 +1013,7 @@ export function AgentConsole() {
         setConversationStatus('idle')
         setConversationTranscript('')
         setConversationError(
-          `Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} creditos.`,
+          `Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} tokens.`,
         )
         assistantVoiceMessageIdRef.current = null
         return
@@ -934,12 +1022,18 @@ export function AgentConsole() {
       setVoiceStatus('idle')
       setVoiceTranscript('')
       setVoiceError(
-        `Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} creditos.`,
+        `Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} tokens.`,
       )
     }, VOICE_DEMO_LIMIT_MS)
   }
 
   function consumeOpenAiVoiceCreditEstimate() {
+    setOpenAiVoiceSecondsRemaining((current) => {
+      if (current === null) {
+        return current
+      }
+      return Math.max(0, current - VOICE_DEMO_LIMIT_MS / 1000)
+    })
     setOpenAiCreditRemaining((current) => {
       if (current === null) {
         return current
@@ -1058,6 +1152,58 @@ export function AgentConsole() {
         Demo integrada
       </div>
 
+      {quotaModalOpen && openAiCreditRemaining !== null && (
+        <div className="usage-modal-backdrop" role="presentation">
+          <div
+            className="usage-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="usageModalTitle"
+          >
+            <header className="usage-modal-header">
+              <div>
+                <span>Demo OpenAI</span>
+                <h3 id="usageModalTitle">Tu cuota inicial esta activa</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuotaModalOpen(false)}
+                aria-label="Cerrar aviso de cuota"
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <div className="usage-modal-grid">
+              <div>
+                <span>Tokens</span>
+                <strong>{openAiCreditRemaining}/{openAiTokenLimit || 200}</strong>
+              </div>
+              <div>
+                <span>Voz</span>
+                <strong>{formatVoiceAllowance(openAiVoiceMaxSeconds || 300)}</strong>
+              </div>
+              <div>
+                <span>Interaccion</span>
+                <strong>{openAiChatTokenCost} tokens</strong>
+              </div>
+              <div>
+                <span>Llamada</span>
+                <strong>max. 1 min</strong>
+              </div>
+            </div>
+            <p>
+              Cada mensaje por chat o dictado consume {openAiChatTokenCost} tokens. Cada sesion de
+              voz usa hasta un minuto y se corta automaticamente.
+            </p>
+            <footer className="usage-modal-actions">
+              <button type="button" onClick={() => setQuotaModalOpen(false)}>
+                Entendido
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       <div className="console-grid">
         <div className="console-main">
           <div className="console-header">
@@ -1067,6 +1213,39 @@ export function AgentConsole() {
             </div>
             <span>{sessionId ? `session ${sessionId.slice(0, 8)}` : 'sin sesion'}</span>
           </div>
+
+          {openAiCreditRemaining !== null && (
+            <div className="usage-quota-strip">
+              <div>
+                <span>Tokens OpenAI</span>
+                <strong>{openAiCreditRemaining}/{openAiTokenLimit || 200}</strong>
+              </div>
+              <div>
+                <span>Voz restante</span>
+                <strong>
+                  {formatVoiceAllowance(openAiVoiceSecondsRemaining ?? openAiVoiceMaxSeconds ?? 300)}
+                </strong>
+              </div>
+              <div>
+                <span>Costo</span>
+                <strong>{openAiChatTokenCost} tokens</strong>
+              </div>
+              {openAiCreditRemaining <= 0 && (
+                <button
+                  type="button"
+                  onClick={handleRequestMoreTokens}
+                  disabled={tokenRequestLoading || tokenRequestPending}
+                >
+                  {tokenRequestPending
+                    ? 'Solicitud enviada'
+                    : tokenRequestLoading
+                      ? 'Enviando...'
+                      : 'Solicitar mas tokens'}
+                </button>
+              )}
+              {tokenRequestMessage && <p>{tokenRequestMessage}</p>}
+            </div>
+          )}
 
           <div className="message-list" aria-live="polite">
             {messages.map((message) => (
@@ -1288,309 +1467,5 @@ export function AgentConsole() {
 
       </div>
     </section>
-  )
-}
-
-type FormattedBlock =
-  | { type: 'heading'; content: string }
-  | { type: 'paragraph'; content: string }
-  | { type: 'list'; items: string[] }
-  | { type: 'numbered'; items: string[] }
-
-function FormattedMessage({ content }: { content: string }) {
-  const blocks = useMemo(() => buildBlocks(content), [content])
-
-  return (
-    <div className="assistant-content">
-      {blocks.map((block, index) => {
-        if (block.type === 'heading') {
-          return <h4 key={`${block.type}-${index}`}>{block.content}</h4>
-        }
-
-        if (block.type === 'list') {
-          return (
-            <ul key={`${block.type}-${index}`}>
-              {block.items.map((item, itemIndex) => (
-                <li key={`${item}-${itemIndex}`}>{item}</li>
-              ))}
-            </ul>
-          )
-        }
-
-        if (block.type === 'numbered') {
-          return (
-            <ol key={`${block.type}-${index}`}>
-              {block.items.map((item, itemIndex) => (
-                <li key={`${item}-${itemIndex}`}>{item}</li>
-              ))}
-            </ol>
-          )
-        }
-
-        return <p key={`${block.type}-${index}`}>{block.content}</p>
-      })}
-    </div>
-  )
-}
-
-function shouldShowPortfolioFollowUps(message: Message) {
-  if (message.role !== 'assistant' || !message.content.trim()) {
-    return false
-  }
-
-  const normalized = message.content
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-
-  return (
-    normalized.includes('portfolio') &&
-    (normalized.includes('sebastian gatica') ||
-      normalized.includes('habilidades') ||
-      normalized.includes('capacidades') ||
-      normalized.includes('experiencia') ||
-      normalized.includes('stack') ||
-      normalized.includes('demos'))
-  )
-}
-
-function buildBlocks(content: string): FormattedBlock[] {
-  const normalized = normalizeAssistantText(content)
-  const lines = normalized
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-
-  const blocks: FormattedBlock[] = []
-  let listItems: string[] = []
-  let numberedItems: string[] = []
-
-  const flushLists = () => {
-    if (listItems.length) {
-      blocks.push({ type: 'list', items: listItems })
-      listItems = []
-    }
-
-    if (numberedItems.length) {
-      blocks.push({ type: 'numbered', items: numberedItems })
-      numberedItems = []
-    }
-  }
-
-  for (const line of lines) {
-    if (/^#{1,3}\s+/.test(line)) {
-      flushLists()
-      blocks.push({ type: 'heading', content: line.replace(/^#{1,3}\s+/, '') })
-      continue
-    }
-
-    if (/^[-*]\s+/.test(line)) {
-      if (numberedItems.length) {
-        blocks.push({ type: 'numbered', items: numberedItems })
-        numberedItems = []
-      }
-      listItems.push(line.replace(/^[-*]\s+/, ''))
-      continue
-    }
-
-    if (/^\d+\.\s+/.test(line)) {
-      if (listItems.length) {
-        blocks.push({ type: 'list', items: listItems })
-        listItems = []
-      }
-      numberedItems.push(line.replace(/^\d+\.\s+/, ''))
-      continue
-    }
-
-    flushLists()
-
-    if (isCompactHeading(line)) {
-      blocks.push({ type: 'heading', content: line })
-    } else {
-      blocks.push({ type: 'paragraph', content: line })
-    }
-  }
-
-  flushLists()
-  return blocks
-}
-
-function normalizeAssistantText(content: string) {
-  return content
-    .replace(/\r\n/g, '\n')
-    .replace(/([^\n])(\d+\.\s+)/g, '$1\n$2')
-    .replace(/([^\n])\s+-\s+/g, '$1\n- ')
-    .replace(/(^|\n)([A-Z][A-Za-z0-9 /&-]{3,70})-\s+/g, '$1### $2\n- ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-function isCompactHeading(line: string) {
-  const first = line.charAt(0)
-
-  return (
-    line.length <= 72 &&
-    !line.endsWith('.') &&
-    !line.includes(':') &&
-    first === first.toUpperCase() &&
-    first !== first.toLowerCase()
-  )
-}
-
-function voiceLabel(status: VoiceStatus) {
-  if (status === 'connecting') {
-    return 'Conectando microfono'
-  }
-  if (status === 'listening') {
-    return 'Escuchando'
-  }
-  if (status === 'error') {
-    return 'Voz pausada'
-  }
-  return 'Modo voz listo'
-}
-
-function conversationLabel(status: VoiceStatus) {
-  if (status === 'connecting') {
-    return 'Conectando conversacion'
-  }
-  if (status === 'listening') {
-    return 'Conversacion activa'
-  }
-  if (status === 'error') {
-    return 'Conversacion pausada'
-  }
-  return 'Modo conversacion listo'
-}
-
-function audioLabel(voiceStatus: VoiceStatus, conversationStatus: VoiceStatus) {
-  if (conversationStatus === 'connecting' || conversationStatus === 'listening') {
-    return conversationLabel(conversationStatus)
-  }
-  if (voiceStatus === 'connecting' || voiceStatus === 'listening') {
-    return voiceLabel(voiceStatus)
-  }
-  if (conversationStatus === 'error') {
-    return conversationLabel(conversationStatus)
-  }
-  return voiceLabel(voiceStatus)
-}
-
-function audioPanelClass(voiceStatus: VoiceStatus, conversationStatus: VoiceStatus) {
-  if (conversationStatus === 'listening') {
-    return 'voice-panel-conversation'
-  }
-  if (conversationStatus === 'connecting') {
-    return 'voice-panel-connecting'
-  }
-  return `voice-panel-${voiceStatus}`
-}
-
-function openAiProviderTitle(openAiConfigured: boolean | null, openAiCreditsExhausted: boolean) {
-  if (openAiConfigured === false) {
-    return 'OPENAI_API_KEY no esta disponible; se usa Qwen.'
-  }
-  if (openAiConfigured === null) {
-    return 'Chequeando disponibilidad de OpenAI.'
-  }
-  if (openAiCreditsExhausted) {
-    return 'Demo OpenAI agotada para esta IP. Usa Qwen para seguir.'
-  }
-  return 'Usar OpenAI'
-}
-
-function voiceButtonTitle(openAiVoiceReady: boolean, browserSpeechAvailable: boolean) {
-  if (openAiVoiceReady) {
-    return 'Dictado OpenAI Realtime: consume creditos de voz.'
-  }
-  if (browserSpeechAvailable) {
-    return 'Dictado gratuito del navegador: no consume OpenAI.'
-  }
-  return 'Este navegador no soporta dictado gratuito; proba Chrome, Edge o Safari.'
-}
-
-function conversationButtonTitle(openAiVoiceReady: boolean, browserSpeechAvailable: boolean) {
-  if (openAiVoiceReady) {
-    return 'Conversacion OpenAI Realtime: consume creditos de voz.'
-  }
-  if (browserSpeechAvailable) {
-    return 'Conversacion gratuita por turnos: navegador + Qwen + voz local.'
-  }
-  return 'Este navegador no soporta dictado gratuito; Qwen sigue disponible por texto.'
-}
-
-function audioDetail({
-  voiceConfigured,
-  voiceModel,
-  voiceStatus,
-  conversationModel,
-  conversationStatus,
-  chatRuntime,
-  qwenModel,
-  openAiVoiceAvailable,
-  openAiVoiceCreditCost,
-  browserSpeechAvailable,
-}: {
-  voiceConfigured: boolean | null
-  voiceModel: string | null
-  voiceStatus: VoiceStatus
-  conversationModel: string | null
-  conversationStatus: VoiceStatus
-  chatRuntime: ChatRuntime
-  qwenModel: string
-  openAiVoiceAvailable: boolean | null
-  openAiVoiceCreditCost: number
-  browserSpeechAvailable: boolean
-}) {
-  if (conversationStatus === 'connecting' || conversationStatus === 'listening') {
-    return conversationModel
-      ? `Modelo conversacion: ${conversationModel}`
-      : 'Modelo conversacion: gpt-realtime-mini'
-  }
-  if (voiceStatus === 'connecting' || voiceStatus === 'listening') {
-    return voiceModel ? `Modelo dictado: ${voiceModel}` : 'Modelo dictado: gpt-4o-mini-transcribe'
-  }
-  if (chatRuntime === 'free') {
-    return browserSpeechAvailable
-      ? `Modo gratuito: dictado del navegador, respuestas ${qwenModel} y voz local.`
-      : `Qwen (${qwenModel}) esta disponible por texto; este navegador no ofrece dictado gratis.`
-  }
-  if (openAiVoiceAvailable === false) {
-    return browserSpeechAvailable
-      ? `OpenAI voz requiere ${openAiVoiceCreditCost} creditos; se usa modo gratuito del navegador.`
-      : `OpenAI voz requiere ${openAiVoiceCreditCost} creditos y este navegador no ofrece dictado gratis.`
-  }
-  if (voiceConfigured === false) {
-    return browserSpeechAvailable
-      ? 'OpenAI Realtime no esta configurado; voz gratuita disponible desde el navegador.'
-      : 'OpenAI Realtime no esta configurado y este navegador no ofrece dictado gratuito.'
-  }
-  return 'Dictado transcribe texto; Conversar responde con voz. Solo uno puede estar activo.'
-}
-
-function getSpeechRecognitionConstructor() {
-  if (typeof window === 'undefined') {
-    return undefined
-  }
-  return window.SpeechRecognition || window.webkitSpeechRecognition
-}
-
-function browserSpeechSupported() {
-  return Boolean(getSpeechRecognitionConstructor())
-}
-
-function normalizeSpokenText(value: string) {
-  return value.replace(/\s+/g, ' ').trim()
-}
-
-function stripSpeechText(value: string) {
-  return normalizeSpokenText(
-    value
-      .replace(/```[\s\S]*?```/g, ' ')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/^#{1,6}\s*/gm, '')
-      .replace(/^\s*[-*]\s+/gm, '')
-      .replace(/\*\*|__/g, '')
-      .replace(/\[(.*?)\]\(.*?\)/g, '$1'),
   )
 }

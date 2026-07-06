@@ -48,6 +48,10 @@
   --primary: #08111f;
   --primary-contrast: #f8fafc;
   --accent-contrast: #ffffff;
+  --selection-bg: rgba(20, 184, 200, 0.12);
+  --selection-bg-hover: rgba(20, 184, 200, 0.16);
+  --selection-border: rgba(20, 184, 200, 0.54);
+  --selection-shadow: 0 0 0 4px rgba(20, 184, 200, 0.08);
   --hero-panel-border: rgba(8, 17, 31, 0.1);
   --hero-panel-bg:
     linear-gradient(135deg, rgba(20, 184, 200, 0.18), transparent 38%),
@@ -107,6 +111,10 @@
   --primary: #dceafe;
   --primary-contrast: #0f1722;
   --accent-contrast: #08111f;
+  --selection-bg: rgba(56, 213, 228, 0.12);
+  --selection-bg-hover: rgba(56, 213, 228, 0.16);
+  --selection-border: rgba(56, 213, 228, 0.54);
+  --selection-shadow: 0 0 0 4px rgba(56, 213, 228, 0.08);
   --hero-panel-border: rgba(148, 163, 184, 0.24);
   --hero-panel-bg:
     linear-gradient(135deg, rgba(56, 213, 228, 0.14), rgba(119, 163, 255, 0.08) 45%, transparent),
@@ -204,10 +212,12 @@ a {
   place-items: center;
   width: 2.35rem;
   aspect-ratio: 1;
+  border: 1px solid var(--selection-border);
   border-radius: 8px;
-  background: var(--primary);
-  color: var(--primary-contrast);
+  background: var(--selection-bg);
+  color: var(--heading);
   font-weight: 800;
+  box-shadow: var(--selection-shadow);
 }
 
 .brand strong {
@@ -254,6 +264,7 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid transparent;
   padding: 0.65rem 0.8rem;
   color: var(--muted);
   font-size: 0.94rem;
@@ -266,8 +277,15 @@ a {
 }
 
 .nav nav a[aria-current="page"] {
-  background: var(--primary);
-  color: var(--primary-contrast);
+  border-color: var(--selection-border);
+  background: var(--selection-bg);
+  color: var(--heading);
+  box-shadow: var(--selection-shadow);
+}
+
+.nav nav a[aria-current="page"]:hover {
+  background: var(--selection-bg-hover);
+  color: var(--heading);
 }
 
 .mobile-tabbar {
@@ -394,8 +412,10 @@ main {
 }
 
 .button-primary {
-  background: var(--primary);
-  color: var(--primary-contrast);
+  border: 1px solid var(--selection-border);
+  background: var(--selection-bg);
+  color: var(--heading);
+  box-shadow: var(--selection-shadow);
 }
 
 .button-secondary {
@@ -1003,6 +1023,40 @@ main {
   line-height: 1.5;
 }
 
+.home-demos-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-top: 1px solid var(--line);
+  padding: 1.1rem 0 1.4rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.home-demos-cta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.48rem 0.65rem;
+  background: var(--surface);
+  color: var(--heading);
+  font-weight: 850;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.home-demos-cta a:hover {
+  border-color: rgba(56, 103, 214, 0.42);
+  background: var(--nav-hover-bg);
+  transform: translateY(-1px);
+}
+
 .skill-pill-grid {
   display: grid;
   gap: 0.8rem;
@@ -1081,6 +1135,15 @@ main {
   letter-spacing: 0;
 }
 
+.contact-copy h2 {
+  max-width: 760px;
+  margin: 0.8rem 0 1rem;
+  color: var(--heading);
+  font-size: clamp(2.1rem, 4vw, 2.85rem);
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
 .contact-copy p {
   max-width: 690px;
   margin: 0;
@@ -1098,18 +1161,22 @@ main {
 .contact-actions a {
   gap: 0.45rem;
   min-height: 2.75rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--selection-border);
   padding: 0.72rem 0.85rem;
-  background: var(--surface);
+  background: var(--selection-bg);
   color: var(--heading);
   font-weight: 900;
   text-decoration: none;
+  box-shadow: var(--selection-shadow);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
 }
 
-.contact-actions a:first-child {
-  background: var(--primary);
-  color: var(--primary-contrast);
-  border-color: var(--primary);
+.contact-actions a:hover {
+  background: var(--selection-bg-hover);
+  transform: translateY(-1px);
 }
 
 .contact-form-panel {
@@ -1182,12 +1249,13 @@ main {
   justify-content: center;
   gap: 0.45rem;
   min-height: 2.85rem;
-  border: 0;
+  border: 1px solid var(--selection-border);
   padding: 0.78rem 1rem;
-  background: var(--primary);
-  color: var(--primary-contrast);
+  background: var(--selection-bg);
+  color: var(--heading);
   font-weight: 900;
   cursor: pointer;
+  box-shadow: var(--selection-shadow);
 }
 
 .contact-form-panel button:disabled {
@@ -1427,11 +1495,12 @@ main {
   gap: 0.45rem;
   width: fit-content;
   margin-top: auto;
-  border: 0;
+  border: 1px solid var(--selection-border);
   padding: 0.72rem 0.85rem;
-  background: var(--primary);
-  color: var(--primary-contrast);
+  background: var(--selection-bg);
+  color: var(--heading);
   font-weight: 900;
+  box-shadow: var(--selection-shadow);
 }
 
 .demo-card-link:hover .demo-card-action {
@@ -1525,6 +1594,11 @@ main {
   margin-top: 1rem;
 }
 
+.appointment-runtime-toggle.runtime-provider-toggle {
+  flex: 1 1 100%;
+  width: min(100%, 24rem);
+}
+
 .call-action {
   display: inline-flex;
   align-items: center;
@@ -1557,7 +1631,9 @@ main {
 .call-log {
   display: grid;
   gap: 0.55rem;
-  max-height: 15rem;
+  height: clamp(24rem, 42vh, 34rem);
+  max-height: none;
+  align-content: start;
   overflow: auto;
   margin-top: 1rem;
   border: 1px solid var(--line);
@@ -1588,6 +1664,18 @@ main {
 .call-message span {
   color: var(--body);
   line-height: 1.38;
+}
+
+.call-agent-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.call-agent-thinking svg {
+  color: var(--cyan);
 }
 
 .call-message-user {
@@ -1691,7 +1779,7 @@ main {
 
 .appointment-demo-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.16fr) minmax(0, 0.92fr) minmax(0, 0.92fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: stretch;
   min-width: 0;
@@ -1710,6 +1798,62 @@ main {
 
 .appointment-call-panel h3 {
   font-size: 2.4rem;
+}
+
+.appointment-call-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.appointment-flow-help {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.appointment-flow-help > button {
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba(56, 103, 214, 0.22);
+  border-radius: 8px;
+  background: rgba(56, 103, 214, 0.08);
+  color: var(--blue);
+  cursor: help;
+}
+
+.appointment-flow-help > button:hover,
+.appointment-flow-help > button:focus-visible {
+  border-color: rgba(20, 184, 200, 0.48);
+  background: rgba(20, 184, 200, 0.12);
+  color: var(--cyan);
+}
+
+.appointment-flow-tooltip {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  z-index: 20;
+  width: min(21rem, calc(100vw - 2rem));
+  min-height: auto;
+  max-height: min(70vh, 30rem);
+  overflow: auto;
+  padding: 1rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.25rem);
+  box-shadow: var(--shadow-xl);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.appointment-flow-help:hover .appointment-flow-tooltip,
+.appointment-flow-help > button:focus-visible + .appointment-flow-tooltip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .appointment-consultations {
@@ -1744,8 +1888,9 @@ main {
 }
 
 .appointment-consultation-button[aria-pressed="true"] {
-  border-color: rgba(20, 184, 200, 0.54);
-  background: rgba(20, 184, 200, 0.12);
+  border-color: var(--selection-border);
+  background: var(--selection-bg);
+  box-shadow: var(--selection-shadow);
 }
 
 .appointment-consultation-button:disabled {
@@ -1760,15 +1905,13 @@ main {
 }
 
 .appointment-steps-card,
-.appointment-activity-card,
 .appointment-calendar-card {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-bg-strong);
 }
 
-.appointment-steps-card,
-.appointment-activity-card {
+.appointment-steps-card {
   padding: 1rem;
   min-height: 100%;
 }
@@ -1853,48 +1996,14 @@ main {
 
 .appointment-error-copy button {
   flex: 0 0 auto;
-  border: 0;
+  border: 1px solid var(--selection-border);
   border-radius: 8px;
   padding: 0.58rem 0.72rem;
-  background: var(--primary);
-  color: var(--primary-contrast);
+  background: var(--selection-bg);
+  color: var(--heading);
   font-weight: 900;
   cursor: pointer;
-}
-
-.appointment-activity-list {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 0.9rem;
-}
-
-.appointment-activity-list article {
-  display: grid;
-  gap: 0.18rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0.68rem;
-  background: var(--surface-subtle);
-}
-
-.appointment-activity-list span {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 0.2rem 0.42rem;
-  background: rgba(56, 103, 214, 0.08);
-  color: var(--blue);
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.appointment-activity-list strong {
-  color: var(--heading);
-  line-height: 1.35;
-}
-
-.appointment-activity-list time {
-  color: var(--muted);
-  font-size: 0.78rem;
+  box-shadow: var(--selection-shadow);
 }
 
 .appointment-calendar-card {
@@ -2290,12 +2399,13 @@ main {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border: 0;
+  border: 1px solid var(--selection-border);
   padding: 0.72rem 0.85rem;
-  background: var(--primary);
-  color: var(--primary-contrast);
+  background: var(--selection-bg);
+  color: var(--heading);
   font-weight: 900;
   cursor: pointer;
+  box-shadow: var(--selection-shadow);
 }
 
 .document-summary-actions button:last-child {
@@ -2432,6 +2542,142 @@ main {
   box-shadow: 0 0 0 4px rgba(47, 158, 115, 0.12);
 }
 
+.usage-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.usage-modal {
+  width: min(34rem, 100%);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.26);
+}
+
+.usage-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.usage-modal-header span {
+  color: var(--green);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.usage-modal h3 {
+  margin: 0.15rem 0 0;
+  color: var(--heading);
+  font-size: 1.35rem;
+}
+
+.usage-modal-header button {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--heading);
+}
+
+.usage-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  padding: 1rem 1rem 0;
+}
+
+.usage-modal-grid div {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+
+.usage-modal-grid span,
+.usage-quota-strip span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.usage-modal-grid strong,
+.usage-quota-strip strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--heading);
+  font-size: 0.98rem;
+  overflow-wrap: anywhere;
+}
+
+.usage-modal p {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.usage-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 1rem 1rem;
+}
+
+.usage-modal-actions button,
+.usage-quota-strip button {
+  min-height: 2.35rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  font-weight: 800;
+}
+
+.usage-modal-actions button:disabled,
+.usage-quota-strip button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.usage-quota-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(47, 158, 115, 0.08);
+}
+
+.usage-quota-strip > div {
+  min-width: 0;
+}
+
+.usage-quota-strip p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .message-list {
   height: 25rem;
   overflow: auto;
@@ -2473,9 +2719,10 @@ main {
 }
 
 .message-user .message-bubble {
-  background: var(--primary);
-  color: var(--primary-contrast);
-  border-color: var(--primary);
+  background: var(--selection-bg);
+  color: var(--heading);
+  border-color: var(--selection-border);
+  box-shadow: var(--selection-shadow);
 }
 
 .message-live .message-bubble {
@@ -2519,7 +2766,7 @@ main {
 .message-user .assistant-content p,
 .message-user .assistant-content li,
 .message-user .assistant-content h4 {
-  color: var(--primary-contrast);
+  color: var(--heading);
 }
 
 .portfolio-followups {
@@ -2676,15 +2923,16 @@ main {
 .voice-panel-listening .voice-actions button:first-child,
 .voice-panel-conversation .voice-actions button:last-child,
 .voice-panel-connecting .voice-actions button {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--primary-contrast);
+  border-color: var(--selection-border);
+  background: var(--selection-bg);
+  color: var(--heading);
+  box-shadow: var(--selection-shadow);
 }
 
 .voice-panel-listening .voice-actions button:first-child svg,
 .voice-panel-conversation .voice-actions button:last-child svg,
 .voice-panel-connecting .voice-actions button svg {
-  color: var(--primary-contrast);
+  color: var(--cyan);
 }
 
 .voice-panel-conversation {
@@ -2838,7 +3086,14 @@ main {
 
 .runtime-checkbox-grid input {
   width: auto;
-  accent-color: var(--blue);
+  accent-color: var(--cyan);
+}
+
+.runtime-checkbox-grid label:has(input:checked) {
+  border-color: var(--selection-border);
+  background: var(--selection-bg);
+  color: var(--heading);
+  box-shadow: var(--selection-shadow);
 }
 
 .console-form textarea {
@@ -2893,7 +3148,7 @@ main {
   justify-content: center;
   min-height: 2.55rem;
   gap: 0.44rem;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 6px;
   padding: 0.58rem 0.65rem;
   background: transparent;
@@ -2927,14 +3182,15 @@ main {
 }
 
 .runtime-provider-toggle .runtime-provider-active {
-  background: var(--primary);
-  color: var(--primary-contrast);
-  box-shadow: 0 8px 18px rgba(8, 17, 31, 0.14);
+  border-color: var(--selection-border);
+  background: var(--selection-bg);
+  color: var(--heading);
+  box-shadow: var(--selection-shadow);
 }
 
 .runtime-provider-toggle .runtime-provider-active:hover:not(:disabled) {
-  background: var(--primary);
-  color: var(--primary-contrast);
+  background: var(--selection-bg-hover);
+  color: var(--heading);
 }
 
 .runtime-provider-toggle button:disabled {
@@ -3091,7 +3347,8 @@ main {
   gap: 0.5rem;
 }
 
-.footer-links a {
+.footer-links a,
+.footer-links button {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -3099,7 +3356,159 @@ main {
   border-radius: 8px;
   padding: 0.55rem 0.7rem;
   background: var(--surface);
+  color: var(--muted);
+  font-size: 0.9rem;
   text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.footer-links a:hover,
+.footer-links button:hover {
+  border-color: rgba(56, 103, 214, 0.42);
+  background: var(--nav-hover-bg);
+  color: var(--heading);
+  transform: translateY(-1px);
+}
+
+.footer-about-button {
+  font-weight: 800;
+}
+
+.about-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 2rem);
+  background: rgba(8, 17, 31, 0.58);
+  backdrop-filter: blur(14px);
+}
+
+.about-modal {
+  width: min(42rem, 100%);
+  max-height: min(86vh, 46rem);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(20, 184, 200, 0.12), transparent 42%),
+    var(--panel-bg-strong);
+  color: var(--body);
+  box-shadow: var(--shadow-xl);
+}
+
+.about-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding: 1.15rem;
+}
+
+.about-modal-title-block {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.about-modal-mark {
+  display: grid;
+  place-items: center;
+  width: 2.9rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba(20, 184, 200, 0.32);
+  border-radius: 8px;
+  background: rgba(20, 184, 200, 0.1);
+  color: var(--cyan);
+}
+
+.about-modal-kicker {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--blue);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.about-modal h2 {
+  margin: 0;
+  color: var(--heading);
+  font-size: clamp(1.65rem, 4vw, 2.25rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.about-modal-close {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--heading);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.about-modal-close:hover {
+  border-color: rgba(227, 95, 67, 0.38);
+  background: rgba(227, 95, 67, 0.1);
+  transform: translateY(-1px);
+}
+
+.about-modal-body {
+  display: grid;
+  gap: 1rem;
+  padding: 1.2rem;
+}
+
+.about-modal-lead {
+  margin: 0;
+  color: var(--heading);
+  font-size: 1.08rem;
+  line-height: 1.5;
+}
+
+.about-modal-points {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.about-modal-points li {
+  position: relative;
+  padding-left: 1.1rem;
+  color: var(--body);
+  line-height: 1.55;
+}
+
+.about-modal-points li::before {
+  content: "";
+  position: absolute;
+  top: 0.68em;
+  left: 0;
+  width: 0.42rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: var(--cyan);
 }
 
 .spin {
@@ -3254,6 +3663,7 @@ main {
     justify-content: center;
     flex-direction: column;
     gap: 0.2rem;
+    border: 1px solid transparent;
     border-radius: 8px;
     color: var(--muted);
     font-size: 0.72rem;
@@ -3265,8 +3675,10 @@ main {
   }
 
   .mobile-tabbar a[aria-current="page"] {
-    background: var(--primary);
-    color: var(--primary-contrast);
+    border-color: var(--selection-border);
+    background: var(--selection-bg);
+    color: var(--heading);
+    box-shadow: var(--selection-shadow);
   }
 
   .mobile-tabbar svg {
@@ -3388,6 +3800,18 @@ main {
     padding: 2.25rem 0;
   }
 
+  .home-demos-cta {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.95rem 0 1.25rem;
+    text-align: center;
+  }
+
+  .home-demos-cta a {
+    justify-content: center;
+  }
+
   .professional-profile-copy h2,
   .skill-snapshot-copy h2,
   .section-heading h2 {
@@ -3482,6 +3906,16 @@ main {
     display: none;
   }
 
+  .usage-modal-grid,
+  .usage-quota-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .usage-quota-strip button,
+  .usage-quota-strip p {
+    grid-column: 1 / -1;
+  }
+
   .message-list {
     height: 23rem;
     max-height: 58svh;
@@ -3563,6 +3997,15 @@ main {
     align-items: flex-start;
   }
 
+  .appointment-call-tools {
+    align-items: flex-start;
+  }
+
+  .appointment-flow-tooltip {
+    right: -0.2rem;
+    width: min(18.5rem, calc(100vw - 1.4rem));
+  }
+
   .voice-orb {
     width: 3.8rem;
   }
@@ -3598,7 +4041,7 @@ main {
   }
 
   .call-log {
-    max-height: 13rem;
+    height: 18rem;
   }
 
   .appointment-calendar-header {
@@ -3607,7 +4050,6 @@ main {
   }
 
   .appointment-steps-card,
-  .appointment-activity-card,
   .appointment-calendar-card {
     padding: 0.9rem;
   }

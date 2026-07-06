@@ -17,25 +17,49 @@ El objetivo principal es mostrar, mediante demos navegables, que Sebastian puede
 
 ```text
 src/
-  App.tsx                         UI principal, rutas y paginas.
+  App.tsx                         Shell de layout, tema y render de rutas.
+  app/
+    routing.ts                    Rutas, base path y helpers de navegacion.
+    theme.ts                      Tema claro/oscuro y persistencia local.
+  pages/
+    HomePage.tsx                  Inicio del portfolio.
+    DemosPage.tsx                 Hub de demos.
+    DemoDetailPages.tsx           Wrappers de chat, turnos y documentos.
+    ContactPage.tsx               Formulario y canales de contacto.
   components/
     AgentConsole.tsx              Demo principal: chat, dictado y conversacion.
     MedicalAppointmentDemo.tsx    Demo de turnos con voz y agenda viva.
     DocumentSummaryDemo.tsx       Demo de resumen de PDF.
+    agent-console/                Formateo de mensajes y UI de voz.
+    appointments/                 Utilidades de la demo de turnos.
+    demo/                         Cards y links comunes de demos.
+    shared/                       Utilidades compartidas de navegador.
   api/
     agentClient.ts                Cliente HTTP hacia /api.
   data/
     portfolio.ts                  Textos, stack y metadata visual.
+    siteContent.tsx               Navegacion, cards y contenido estructural.
 
 backend/
   src/main/java/dev/sg/portfolio/
-    controller/AgentController.java        Endpoints HTTP y SSE.
-    service/PromptLibraryService.java      Carga prompts desde resources.
-    service/PromptComposerService.java     Compone prompt core + agente + extensiones + contexto.
+    agent/AgentController.java             Chat, voz general, routing y SSE.
+    agent/PromptLibraryService.java        Carga prompts desde resources.
+    agent/PromptComposerService.java       Compone prompt core + agente + extensiones + contexto.
+    appointment/AppointmentController.java Endpoints de agenda, tools y voz de turnos.
+    appointment/AppointmentDemoService.java Agenda demo, disponibilidad, reservas y reprogramacion.
+    contact/ContactController.java         Mensajes de contacto.
+    contact/ContactMailService.java        Validacion y envio via Mailtrap.
+    document/DocumentController.java       Endpoint de resumen PDF.
+    document/PdfSummaryService.java        Validacion y resumen de PDF.
+    portfolio/PortfolioController.java     Health y blueprint.
+    usage/PortfolioUsageController.java    Estado y solicitud de tokens por IP.
+    usage/UsageAdminController.java        API admin para acreditar tokens.
+    usage/IpPromptLimitService.java        Persistencia y reglas de cuotas.
+    shared/web/                            Respuestas HTTP y helpers SSE.
     service/OpenAiResponsesClient.java     Llamadas a OpenAI Responses API.
     service/OpenAiRealtimeClient.java      Sesiones OpenAI Realtime para voz.
-    service/AppointmentDemoService.java    Agenda demo, disponibilidad, reservas y reprogramacion.
-    service/PdfSummaryService.java         Validacion y resumen de PDF.
+    service/FreeModelClient.java           Cliente al sidecar gratuito FastAPI/Ollama.
+    service/ClientIpResolver.java          Resolucion de IP detras de proxy.
   src/main/resources/
     application.properties                 Configuracion por entorno.
     prompts/                               Prompts editables por archivo.
@@ -133,7 +157,7 @@ Orden de composicion:
 El archivo que carga los prompts es:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/PromptLibraryService.java
+backend/src/main/java/dev/sg/portfolio/agent/PromptLibraryService.java
 ```
 
 ## Demo de turnos medicos
@@ -147,7 +171,7 @@ src/components/MedicalAppointmentDemo.tsx
 Backend:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/AppointmentDemoService.java
+backend/src/main/java/dev/sg/portfolio/appointment/AppointmentDemoService.java
 backend/src/main/java/dev/sg/portfolio/service/OpenAiRealtimeClient.java
 ```
 
@@ -183,7 +207,7 @@ src/components/DocumentSummaryDemo.tsx
 Backend:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/PdfSummaryService.java
+backend/src/main/java/dev/sg/portfolio/document/PdfSummaryService.java
 backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java
 ```
 

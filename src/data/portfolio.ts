@@ -57,7 +57,7 @@ export const stack = [
   'LLM tools',
   'Workflow UX',
   'GitHub / GitLab APIs',
-  'Business APIs',
+  'Vector DB',
   'Docker',
   'Cloud Run',
   'Terraform-ready',
@@ -67,7 +67,7 @@ export const capabilityLayers: RuntimeLayer[] = [
   {
     title: 'Asistente IA',
     detail: 'Chat y voz para explicar perfil, demos, stack y enfoque profesional.',
-    signal: 'OpenAI integrado',
+    signal: 'Flujo Multiagente',
     icon: Bot,
   },
   {
@@ -142,11 +142,11 @@ export const demoPlaybooks: Record<string, DemoPlaybook> = {
     workflow: 'Consulta -> disponibilidad -> propuesta -> reserva/reprogramacion',
     tools: 'Agenda viva, disponibilidad, book, reschedule',
     state: 'Sesion de llamada, turno activo, actividad de base de datos',
-    evaluation: 'No diagnostica, confirma acciones, calendario se actualiza',
+    evaluation: 'No diagnostica, confirma acciones, calendario se actualiza en persistencia, en tiempo real',
   },
   documents: {
     agent: 'Document intelligence specialist',
-    workflow: 'PDF analist -> resumen estructurado -> descarga TXT',
+    workflow: 'PDF analist -> resumen estructurado -> descarga el reporte',
     tools: 'Responses API con input_file, max 10 MB, store=false',
     state: 'Archivo solo en request, metadata de resumen',
     evaluation: 'Hechos del documento, dudas separadas, sin inventar contexto',

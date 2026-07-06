@@ -25,7 +25,15 @@ export type PromptLimitStatus = {
   allowed: boolean
   used: number
   remaining: number
-  maxPrompts: number
+  maxTokens: number
+  voiceSecondsUsed: number
+  voiceSecondsRemaining: number
+  maxVoiceSeconds: number
+  chatTokenCost: number
+  voiceTokenCost: number
+  voiceSessionSeconds: number
+  newVisitor: boolean
+  tokenRequestPending: boolean
 }
 
 export type VoiceSession = {
@@ -97,6 +105,11 @@ export type AppointmentMutationResponse = {
   appointment: AppointmentEntry
 }
 
+export type AppointmentToolEvent = {
+  action: 'availability' | 'book' | 'reschedule' | 'error' | 'none' | string
+  detail: string
+}
+
 export type PortfolioHealth = {
   ok: boolean
   mode: string
@@ -107,10 +120,19 @@ export type PortfolioHealth = {
   promptLimitEnabled: boolean
   promptLimitUsed: number
   promptLimitRemaining: number
+  promptLimitMaxTokens: number
   promptLimitMaxPrompts: number
+  promptLimitChatTokenCost: number
+  promptLimitNewVisitor: boolean
+  promptLimitTokenRequestPending: boolean
   openaiPromptAvailable: boolean
   openaiVoiceAvailable: boolean
   openaiVoiceCreditCost: number
+  openaiVoiceTokenCost: number
+  openaiVoiceSessionSeconds: number
+  openaiVoiceSecondsUsed: number
+  openaiVoiceSecondsRemaining: number
+  openaiVoiceMaxSeconds: number
 }
 
 export type DocumentSummaryResponse = {
@@ -149,6 +171,14 @@ type StreamHandlers = {
   onTrace?: (trace: AgentTrace) => void
   onFreeModelOffer?: (offer: FreeModelOffer) => void
   onPromptLimit?: (status: PromptLimitStatus) => void
+  onChunk?: (text: string) => void
+  onDone?: (payload: { sessionId: string; live: boolean }) => void
+}
+
+type AppointmentStreamHandlers = {
+  onSession?: (sessionId: string) => void
+  onTrace?: (trace: AgentTrace) => void
+  onTool?: (tool: AppointmentToolEvent) => void
   onChunk?: (text: string) => void
   onDone?: (payload: { sessionId: string; live: boolean }) => void
 }
@@ -247,6 +277,51 @@ export async function createAppointmentVoiceSession(
   }
 
   return response.json()
+}
+
+export async function streamAppointmentFreeResponse(
+  payload: {
+    message: string
+    sessionId: string
+    consultationType: AppointmentConsultationType
+  },
+  handlers: AppointmentStreamHandlers,
+) {
+  const response = await fetch(apiPath('/agent/appointment/free/stream'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok || !response.body) {
+    throw new Error(await responseError(response, `No se pudo abrir Qwen turnos (${response.status})`))
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (value) {
+      buffer += decoder.decode(value, { stream: true })
+      const events = buffer.split(/\n\n/)
+      buffer = events.pop() || ''
+
+      for (const eventBlock of events) {
+        dispatchAppointmentSseEvent(eventBlock, handlers)
+      }
+    }
+
+    if (done) {
+      if (buffer.trim()) {
+        dispatchAppointmentSseEvent(buffer, handlers)
+      }
+      break
+    }
+  }
 }
 
 export async function summarizePdf(file: File): Promise<DocumentSummaryResponse> {
@@ -373,6 +448,28 @@ export async function getPortfolioHealth(): Promise<PortfolioHealth> {
   return response.json()
 }
 
+export async function getUsageStatus(): Promise<PromptLimitStatus> {
+  const response = await fetch(apiPath('/portfolio/usage/status'))
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, `No se pudo leer la cuota (${response.status})`))
+  }
+
+  return response.json()
+}
+
+export async function requestMoreTokens(): Promise<ContactMessageResponse> {
+  const response = await fetch(apiPath('/portfolio/usage/token-request'), {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, `No se pudo solicitar tokens (${response.status})`))
+  }
+
+  return response.json()
+}
+
 export async function sendContactMessage(
   payload: ContactMessagePayload,
 ): Promise<ContactMessageResponse> {
@@ -435,6 +532,39 @@ function dispatchSseEvent(block: string, handlers: StreamHandlers) {
 
   if (event === 'prompt_limit') {
     handlers.onPromptLimit?.(payload)
+  }
+
+  if (event === 'chunk') {
+    handlers.onChunk?.(payload.text)
+  }
+
+  if (event === 'done') {
+    handlers.onDone?.(payload)
+  }
+}
+
+function dispatchAppointmentSseEvent(block: string, handlers: AppointmentStreamHandlers) {
+  const eventLine = block.split(/\n/).find((line) => line.startsWith('event:'))
+  const dataLine = block.split(/\n/).find((line) => line.startsWith('data:'))
+  const event = eventLine?.replace('event:', '').trim()
+  const data = dataLine?.replace('data:', '').trim()
+
+  if (!event || !data) {
+    return
+  }
+
+  const payload = JSON.parse(data)
+
+  if (event === 'session') {
+    handlers.onSession?.(payload.sessionId)
+  }
+
+  if (event === 'trace') {
+    handlers.onTrace?.(payload)
+  }
+
+  if (event === 'tool') {
+    handlers.onTool?.(payload)
   }
 
   if (event === 'chunk') {

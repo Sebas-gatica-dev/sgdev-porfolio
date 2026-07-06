@@ -157,7 +157,27 @@ No borrar el volumen salvo que se quiera perder datos locales.
 
 ## VPS
 
-Para deploy remoto conviene:
+Para deploy remoto con `Sgdev-infra`, el contrato esperado es:
+
+```text
+APP_PATH=/portfolio
+APP_UPSTREAM=http://portfolio-nginx:80
+STRIP_PREFIX=false
+VITE_BASE_PATH=/portfolio/
+SGDEV_PORTFOLIO_API_BASE_URL=https://sgdev.com.ar/portfolio/api
+```
+
+El admin de infra acredita tokens llamando al backend del portfolio en:
+
+```text
+GET  /portfolio/api/admin/usage/ips
+POST /portfolio/api/admin/usage/grant
+```
+
+`PORTFOLIO_USAGE_ADMIN_TOKEN` en el portfolio debe coincidir con
+`SGDEV_PORTFOLIO_USAGE_ADMIN_TOKEN` en `/etc/sgdev-infra/admin-control-api.env`.
+
+Para un deploy remoto manual sin `Sgdev-infra` conviene:
 
 1. Crear usuario deploy o usar root solo para bootstrap.
 2. Configurar SSH key.

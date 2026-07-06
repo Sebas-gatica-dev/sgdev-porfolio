@@ -12,7 +12,7 @@ Portfolio de Sebastian Gatica para presentar trabajo freelance en aplicaciones J
 - Modo conversacion OpenAI con respuesta hablada usando Realtime.
 - Fallback gratuito de voz: dictado del navegador + Qwen + voz local del navegador.
 - Demo de reserva medica con herramientas, agenda viva y persistencia PostgreSQL.
-- Limite de creditos por IP con persistencia JDBC: 20 creditos, chat 1, voz 5 por minuto.
+- Limite de tokens por IP con persistencia JDBC: 200 tokens, 10 por interaccion y 5 minutos de voz.
 - Modelo gratuito local con FastAPI + Ollama + Qwen3 0.6B para continuar cuando se agota el cupo por IP.
 - Modo demo local si no existe `OPENAI_API_KEY`.
 - Dockerfile listo para deployar la app completa.
@@ -39,10 +39,12 @@ OPENAI_CONVERSATION_MODEL=gpt-realtime-mini
 OPENAI_CONVERSATION_VOICE=alloy
 PORTFOLIO_CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:*,http://127.0.0.1:*
 PORTFOLIO_IP_PROMPT_LIMIT_ENABLED=true
-PORTFOLIO_IP_PROMPT_LIMIT_MAX_PROMPTS=20
-PORTFOLIO_IP_PROMPT_LIMIT_CHAT_COST=1
-PORTFOLIO_IP_PROMPT_LIMIT_VOICE_MINUTE_COST=5
+PORTFOLIO_IP_TOKEN_LIMIT_MAX_TOKENS=200
+PORTFOLIO_IP_TOKEN_LIMIT_CHAT_COST=10
+PORTFOLIO_IP_TOKEN_LIMIT_VOICE_COST=10
 PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=60
+PORTFOLIO_IP_TOKEN_LIMIT_MAX_VOICE_SECONDS=300
+PORTFOLIO_USAGE_ADMIN_TOKEN=change-me-admin-token
 PORTFOLIO_FREE_MODEL_ENABLED=true
 PORTFOLIO_FREE_MODEL_BASE_URL=http://localhost:8795
 PORTFOLIO_FREE_MODEL_NAME=qwen3:0.6b
@@ -57,13 +59,13 @@ PORTFOLIO_DB_PASSWORD=postgres
 El backend usa Spring WebFlux para llamar `POST https://api.openai.com/v1/responses` con `stream: true`.
 Para voz, el backend genera un `client_secret` efimero con `POST /v1/realtime/client_secrets`
 y el navegador abre WebRTC contra la Realtime API sin exponer `OPENAI_API_KEY`.
-Cada sesion de voz queda limitada a 60 segundos y consume 5 creditos de demo por IP.
+Cada sesion de voz queda limitada a 60 segundos y consume tokens de demo por IP.
 La UI solo habilita la variante OpenAI de `Dictar` y `Conversar` cuando `/api/portfolio/health`
-devuelve `openaiVoiceAvailable=true`: Realtime configurado y creditos suficientes para el costo
+devuelve `openaiVoiceAvailable=true`: Realtime configurado y tokens/minutos suficientes para el costo
 de voz. Cuando OpenAI no esta configurado o no alcanza el saldo de voz, los botones pasan al modo
 gratuito: Web Speech API en el navegador para dictar, Qwen para responder y `speechSynthesis`
-para leer la respuesta. Cuando una IP agota sus 20 creditos, el chat muestra un aviso para seguir
-con el modelo gratuito local sin consumir OpenAI.
+para leer la respuesta. Cuando una IP agota sus tokens, el chat permite solicitar mas tokens por mail
+y tambien seguir con el modelo gratuito local sin consumir OpenAI.
 
 Si al activar voz aparece un 403, el backend ya esta funcionando pero OpenAI rechazo la sesion:
 normalmente falta billing/permisos de Realtime en la API key o acceso al modelo configurado en
@@ -107,11 +109,11 @@ PORTFOLIO_FREE_MODEL_NAME=qwen3:0.6b
 
 Flujo en la UI:
 
-1. El usuario consume sus creditos por IP con OpenAI.
+1. El usuario consume sus tokens por IP con OpenAI.
 2. El backend emite el evento SSE `free_model_offer`.
-3. El chat muestra un tooltip para usar el modelo gratuito.
+3. El chat muestra un tooltip para usar el modelo gratuito o solicitar mas tokens.
 4. Si el usuario acepta, el mismo prompt se reintenta con `runtime: "free"`.
-5. `Dictar gratis` usa Web Speech API del navegador y no consume creditos OpenAI.
+5. `Dictar gratis` usa Web Speech API del navegador y no consume tokens OpenAI.
 6. `Conversar gratis` funciona por turnos: navegador transcribe, Qwen responde por streaming y
    la voz local del navegador lee la respuesta.
 
@@ -120,7 +122,7 @@ Flujo en la UI:
 La demo queda con dos calidades visibles:
 
 - OpenAI Realtime: WebRTC, baja latencia, transcripcion y respuesta hablada integradas, pero depende
-  de API key, billing/permisos y creditos por IP.
+  de API key, billing/permisos y tokens por IP.
 - Gratis/Qwen: no consume OpenAI; usa el dictado y TTS del navegador cuando estan disponibles. Es
   mas simple y menos realtime, pero mantiene la demo conversable aun sin saldo OpenAI.
 
@@ -209,6 +211,39 @@ Healthcheck:
 GET http://localhost:8787/api/portfolio/health
 ```
 
+## Compatibilidad con Sgdev-infra
+
+El deploy multiproyecto vive en:
+
+```text
+C:\Users\CFOTech\Documents\Sgdev-infra
+```
+
+El refactor interno por dominios Java no cambia el contrato HTTP externo. Para que el gateway y el
+admin sigan funcionando, estas rutas deben mantenerse:
+
+```text
+GET  /portfolio/api/portfolio/health
+GET  /portfolio/api/admin/usage/ips
+POST /portfolio/api/admin/usage/grant
+POST /portfolio/api/agent/chat/stream
+POST /portfolio/api/agent/document/summary
+```
+
+Variables compartidas con infra:
+
+```env
+VITE_BASE_PATH=/portfolio/
+PORTFOLIO_USAGE_ADMIN_TOKEN=<mismo valor que SGDEV_PORTFOLIO_USAGE_ADMIN_TOKEN>
+```
+
+En `Sgdev-infra`, el control API usa:
+
+```env
+SGDEV_PORTFOLIO_API_BASE_URL=https://sgdev.com.ar/portfolio/api
+SGDEV_PORTFOLIO_USAGE_ADMIN_TOKEN=<mismo valor que PORTFOLIO_USAGE_ADMIN_TOKEN>
+```
+
 ## Docker
 
 ```bash
@@ -245,35 +280,53 @@ comportamiento.
 
 ```text
 .
-├─ src/
-│  ├─ App.tsx
-│  ├─ main.tsx
-│  ├─ styles.css
-│  ├─ api/
-│  │  └─ agentClient.ts
-│  ├─ components/
-│  │  └─ AgentConsole.tsx
-│  └─ data/
-│     └─ portfolio.ts
-├─ public/
-│  ├─ favicon.svg
-│  └─ sgdev.jpg
-├─ backend/
-│  ├─ src/main/java/dev/sg/portfolio/
-│  │  ├─ PortfolioApiApplication.java
-│  │  ├─ config/
-│  │  ├─ controller/
-│  │  │  └─ AgentController.java
-│  │  ├─ domain/
-│  │  └─ service/
-│  │     ├─ AgentRouter.java
-│  │     ├─ LocalAgentSimulator.java
-│  │     └─ OpenAiResponsesClient.java
-│  └─ src/main/resources/
-│     └─ application.properties
-├─ vite.config.ts
-├─ package.json
-└─ Dockerfile
+|-- src/
+|   |-- App.tsx
+|   |-- app/
+|   |   |-- routing.ts
+|   |   `-- theme.ts
+|   |-- api/
+|   |   `-- agentClient.ts
+|   |-- components/
+|   |   |-- AgentConsole.tsx
+|   |   |-- MedicalAppointmentDemo.tsx
+|   |   |-- DocumentSummaryDemo.tsx
+|   |   |-- agent-console/
+|   |   |-- appointments/
+|   |   |-- demo/
+|   |   `-- shared/
+|   |-- pages/
+|   |   |-- HomePage.tsx
+|   |   |-- DemosPage.tsx
+|   |   |-- DemoDetailPages.tsx
+|   |   `-- ContactPage.tsx
+|   |-- data/
+|   |   |-- portfolio.ts
+|   |   `-- siteContent.tsx
+|   |-- main.tsx
+|   `-- styles.css
+|-- public/
+|   |-- favicon.svg
+|   `-- sgdev.jpg
+|-- backend/
+|   |-- src/main/java/dev/sg/portfolio/
+|   |   |-- PortfolioApiApplication.java
+|   |   |-- agent/
+|   |   |-- appointment/
+|   |   |-- contact/
+|   |   |-- config/
+|   |   |-- document/
+|   |   |-- domain/
+|   |   |-- portfolio/
+|   |   |-- shared/web/
+|   |   |-- usage/
+|   |   `-- service/
+|   `-- src/main/resources/
+|       |-- application.properties
+|       `-- prompts/
+|-- vite.config.ts
+|-- package.json
+`-- Dockerfile
 ```
 
 ### Navegacion y paginas
@@ -282,9 +335,12 @@ La navegacion principal esta definida en:
 
 ```text
 src/App.tsx
+src/app/routing.ts
+src/data/siteContent.tsx
 ```
 
-Las rutas internas se definen con el tipo `Route` y el array `routes`.
+`App.tsx` conserva el shell visual, tema, header/footer y render de la ruta activa. Las rutas
+internas viven en `src/app/routing.ts` con el tipo `Route` y el array `routes`.
 
 ```ts
 type Route =
@@ -316,10 +372,10 @@ El componente `PageLink` reemplaza a los links normales cuando queremos navegar 
 sin recargar toda la pagina.
 
 ```text
-src/App.tsx -> PageLink
+src/components/PageLink.tsx
 ```
 
-El render condicional de paginas tambien esta en `App.tsx`:
+El render condicional de paginas esta en `App.tsx`, pero las paginas viven en `src/pages/`:
 
 ```tsx
 {route === '/' && <HomePage onNavigate={navigate} />}
@@ -333,7 +389,9 @@ El render condicional de paginas tambien esta en `App.tsx`:
 Por eso, si mas adelante se quiere agregar una pagina nueva, hay que tocar:
 
 ```text
+src/app/routing.ts
 src/App.tsx
+src/data/siteContent.tsx
 ```
 
 Puntos a modificar:
@@ -349,7 +407,7 @@ Puntos a modificar:
 La home vive dentro de:
 
 ```text
-src/App.tsx -> HomePage
+src/pages/HomePage.tsx
 ```
 
 Incluye:
@@ -377,7 +435,7 @@ desplazamiento interno del contenido para que no moleste.
 La pagina mas importante del portfolio vive en:
 
 ```text
-src/App.tsx -> DemosPage
+src/pages/DemosPage.tsx
 ```
 
 Ruta:
@@ -395,7 +453,7 @@ Esta pagina funciona como hub de experiencias. Hoy tiene tres cards:
 El array que define esas cards esta en:
 
 ```text
-src/App.tsx -> demoCards
+src/data/siteContent.tsx -> demoCards
 ```
 
 La ruta antigua:
@@ -411,7 +469,7 @@ se mantiene como compatibilidad y renderiza la misma experiencia que `/demos/cha
 La demo actual vive en:
 
 ```text
-src/App.tsx -> AgentChatDemoPage
+src/pages/DemoDetailPages.tsx -> AgentChatDemoPage
 src/components/AgentConsole.tsx
 ```
 
@@ -435,8 +493,8 @@ Esta demo es la base donde despues se integrarian:
 Las otras demos activas estan en:
 
 ```text
-src/App.tsx -> MedicalAppointmentDemoPage
-src/App.tsx -> DocumentDemoPage
+src/pages/DemoDetailPages.tsx -> MedicalAppointmentDemoPage
+src/pages/DemoDetailPages.tsx -> DocumentDemoPage
 src/components/MedicalAppointmentDemo.tsx
 src/components/DocumentSummaryDemo.tsx
 ```
@@ -450,107 +508,43 @@ Rutas:
 
 Son integraciones reales del portfolio: turnos con agenda viva y documentos con tratamiento efimero.
 
-### Pagina Productos
+### Contenido estructural y demos activas
 
-La pagina de productos vive en:
-
-```text
-src/App.tsx -> ProductsPage
-```
-
-Pero el contenido de las cards viene de:
+El contenido estructural de navegacion, cards de demos, enlaces sociales y resumen profesional vive en:
 
 ```text
-src/data/portfolio.ts
+src/data/siteContent.tsx
 ```
 
-Ese archivo define arrays como:
-
-- `productModules`
-- `architectureNodes`
-- `servicePacks`
-- `stack`
-- `workModel`
-
-Entonces, si se quiere cambiar textos de productos sin tocar layout, el lugar correcto es:
+El contenido tecnico mas amplio del portfolio sigue en:
 
 ```text
 src/data/portfolio.ts
 ```
 
-Si se quiere cambiar estructura visual, el lugar correcto es:
+La app activa hoy expone estas paginas:
 
-```text
-src/App.tsx -> ProductsPage
-src/styles.css -> .module-card, .module-grid
-```
+- `src/pages/HomePage.tsx`: inicio, hero y perfil profesional.
+- `src/pages/DemosPage.tsx`: hub de demos.
+- `src/pages/DemoDetailPages.tsx`: wrappers de chat, turnos y documentos.
+- `src/pages/ContactPage.tsx`: formulario y enlaces sociales.
 
-Las cards de productos tienen Atropos aplicado alrededor de toda la card:
+Las demos disponibles son:
 
-```tsx
-<Atropos className="tilt-wrap">
-  <article className="module-card">
-    ...
-  </article>
-</Atropos>
-```
+- `Portfolio assistant`: `/demos/chat` y compatibilidad `/demo`.
+- `Medical appointment workflow`: `/demos/turnos`.
+- `Document intelligence workflow`: `/demos/documentos`.
 
-Importante: el contenido interno ya no tiene `data-atropos-offset`. Eso significa que se mueve la
-card completa, no los textos/iconos por separado.
-
-### Pagina Arquitectura
-
-La pagina de arquitectura vive en:
-
-```text
-src/App.tsx -> ArchitecturePage
-```
-
-El contenido sale de:
-
-```text
-src/data/portfolio.ts -> architectureNodes
-```
-
-Cada nodo explica una pieza de la arquitectura:
-
-- Frontend portfolio.
-- Backend WebFlux.
-- OpenAI.
-- Fallback local.
-- Deploy.
-- Human-in-the-loop.
-
-Esta pagina es la que comunica que el proyecto es standalone y no llama a sistemas del trabajo.
-
-### Pagina Trabajo
-
-La pagina de trabajo vive en:
-
-```text
-src/App.tsx -> WorkPage
-```
-
-Muestra dos bloques:
-
-- `workModel`: forma de trabajo por hitos.
-- `servicePacks`: paquetes comerciales iniciales.
-
-El contenido sale de:
-
-```text
-src/data/portfolio.ts
-```
-
-Esta pagina es importante para la narrativa freelance porque explica como se venderia el trabajo:
-no por horas sueltas, sino por objetivos/hitos.
+Para agregar una pagina nueva, primero se agrega la ruta en `src/app/routing.ts`, luego se crea la
+pagina en `src/pages/` y finalmente se enlaza desde `src/data/siteContent.tsx` si debe aparecer en
+navegacion, home o cards.
 
 ### Pagina Contacto
 
 La pagina de contacto vive en:
 
 ```text
-src/App.tsx -> ContactPage
+src/pages/ContactPage.tsx
 ```
 
 La foto esta en:
@@ -594,7 +588,8 @@ Links sociales actuales:
 Cuando se tengan URLs reales, se cambian en:
 
 ```text
-src/App.tsx -> ContactPage
+src/data/siteContent.tsx -> profileLinks
+src/pages/ContactPage.tsx -> texto y formulario
 ```
 
 ### Atropos
@@ -721,9 +716,9 @@ navigator.clipboard.writeText(message.content)
 El renderer de respuestas vive en:
 
 ```text
-src/components/AgentConsole.tsx -> FormattedMessage
-src/components/AgentConsole.tsx -> buildBlocks
-src/components/AgentConsole.tsx -> normalizeAssistantText
+src/components/agent-console/messageFormatting.tsx -> FormattedMessage
+src/components/agent-console/messageFormatting.tsx -> buildBlocks
+src/components/agent-console/messageFormatting.tsx -> normalizeAssistantText
 ```
 
 No es markdown completo. Es un parser simple para que la demo se vea mejor:
@@ -842,18 +837,29 @@ La app principal:
 backend/src/main/java/dev/sg/portfolio/PortfolioApiApplication.java
 ```
 
-Controlador principal:
+Controladores por dominio:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/controller/AgentController.java
+backend/src/main/java/dev/sg/portfolio/agent/AgentController.java
+backend/src/main/java/dev/sg/portfolio/appointment/AppointmentController.java
+backend/src/main/java/dev/sg/portfolio/contact/ContactController.java
+backend/src/main/java/dev/sg/portfolio/document/DocumentController.java
+backend/src/main/java/dev/sg/portfolio/portfolio/PortfolioController.java
+backend/src/main/java/dev/sg/portfolio/usage/PortfolioUsageController.java
+backend/src/main/java/dev/sg/portfolio/usage/UsageAdminController.java
 ```
 
-Servicios:
+Servicios de dominio e infraestructura:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/AgentRouter.java
+backend/src/main/java/dev/sg/portfolio/agent/AgentRouter.java
+backend/src/main/java/dev/sg/portfolio/agent/PromptComposerService.java
+backend/src/main/java/dev/sg/portfolio/appointment/AppointmentDemoService.java
+backend/src/main/java/dev/sg/portfolio/document/PdfSummaryService.java
+backend/src/main/java/dev/sg/portfolio/usage/IpPromptLimitService.java
 backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java
-backend/src/main/java/dev/sg/portfolio/service/LocalAgentSimulator.java
+backend/src/main/java/dev/sg/portfolio/service/OpenAiRealtimeClient.java
+backend/src/main/java/dev/sg/portfolio/service/FreeModelClient.java
 ```
 
 Modelos/eventos:
@@ -864,10 +870,15 @@ backend/src/main/java/dev/sg/portfolio/domain
 
 ### Endpoints backend
 
-Los endpoints estan en:
+Los endpoints estan distribuidos por dominio:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/controller/AgentController.java
+backend/src/main/java/dev/sg/portfolio/portfolio/PortfolioController.java
+backend/src/main/java/dev/sg/portfolio/agent/AgentController.java
+backend/src/main/java/dev/sg/portfolio/appointment/AppointmentController.java
+backend/src/main/java/dev/sg/portfolio/document/DocumentController.java
+backend/src/main/java/dev/sg/portfolio/usage/PortfolioUsageController.java
+backend/src/main/java/dev/sg/portfolio/usage/UsageAdminController.java
 ```
 
 Health:
@@ -913,7 +924,7 @@ Este endpoint es el corazon de la demo.
 Archivo:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/controller/AgentController.java
+backend/src/main/java/dev/sg/portfolio/agent/AgentController.java
 ```
 
 Metodo:
@@ -940,7 +951,7 @@ Flujo:
 Archivo:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/AgentRouter.java
+backend/src/main/java/dev/sg/portfolio/agent/AgentRouter.java
 ```
 
 Este servicio decide la "ruta activa" segun palabras clave del mensaje.
@@ -966,7 +977,7 @@ backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java
 Metodo principal:
 
 ```java
-public Flux<String> streamText(String message, AgentRoute route)
+public Flux<String> streamText(String message, String instructions)
 ```
 
 Hace un POST a:
@@ -979,7 +990,7 @@ Con payload:
 
 ```java
 payload.put("model", properties.model());
-payload.put("instructions", instructions(route));
+payload.put("instructions", instructions);
 payload.put("input", List.of(Map.of(
     "role", "user",
     "content", message == null ? "" : message
@@ -1002,23 +1013,27 @@ Flux<String>
 Eso es importante porque el backend no espera toda la respuesta para devolverla. Va leyendo chunks
 de OpenAI y reenviandolos a la UI por SSE.
 
-### Donde esta el "prompt interno"
+### Donde esta el prompt del asistente
 
-El prompt interno del modelo esta en:
+El flujo principal ya no concentra el prompt en un unico metodo. La composicion vive en:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java
+backend/src/main/java/dev/sg/portfolio/agent/PromptComposerService.java
+backend/src/main/java/dev/sg/portfolio/agent/PromptLibraryService.java
+backend/src/main/resources/prompts/
 ```
 
-Metodo:
+El orden de carga es:
 
-```java
-private String instructions(AgentRoute route)
-```
+1. `prompts/core/system.md`
+2. prompt del agente en `prompts/agents/*.md`
+3. extensiones en `prompts/extensions/*.txt|*.md`
+4. contexto dinamico recolectado por el backend
 
-Ese metodo define las instrucciones de comportamiento para GPT.
+`OpenAiResponsesClient` recibe el string final y se ocupa de transportarlo por WebFlux a OpenAI.
+Mantiene instrucciones internas solo como fallback de compatibilidad para llamadas antiguas.
 
-Actualmente le dice cosas como:
+Actualmente los prompts le dicen cosas como:
 
 - Responder en espanol rioplatense.
 - Responder claro, breve y profesional.
@@ -1043,10 +1058,10 @@ La respuesta sale de la combinacion de estas piezas:
 
    Decide una ruta conceptual: repo, voz, workflow, general.
 
-2. `OpenAiResponsesClient.instructions`
+2. Prompts + `PromptComposerService`
 
-   Le dice a GPT que muestre criterio de producto, arquitectura, WebFlux, streaming, hitos y
-   human-in-the-loop.
+   Combinan sistema, agente, extensiones y contexto dinamico para mostrar criterio de producto,
+   arquitectura, WebFlux, streaming, hitos y human-in-the-loop.
 
 3. `AgentConsole`
 
@@ -1070,8 +1085,9 @@ Eso es intencional para la version actual: modo portfolio/consultor.
 Si mas adelante se quiere que responda como generador de codigo puro, el cambio deberia hacerse en:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java -> instructions
-backend/src/main/java/dev/sg/portfolio/service/AgentRouter.java
+backend/src/main/resources/prompts/core/system.md
+backend/src/main/resources/prompts/agents/*.md
+backend/src/main/java/dev/sg/portfolio/agent/AgentRouter.java
 src/components/AgentConsole.tsx
 ```
 
@@ -1130,13 +1146,8 @@ Responderia corto, visual y facil de leer para:
 Archivo:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java
-```
-
-Metodo:
-
-```java
-private String instructions(AgentRoute route)
+backend/src/main/resources/prompts/core/system.md
+backend/src/main/resources/prompts/agents/coordinator.md
 ```
 
 Ejemplo de cambio futuro si se quisiera mas codigo:
@@ -1163,7 +1174,7 @@ Responde en maximo 8 bullets, sin secciones largas, priorizando claridad para un
 Archivo:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/LocalAgentSimulator.java
+backend/src/main/java/dev/sg/portfolio/agent/LocalAgentSimulator.java
 ```
 
 Se usa cuando:
@@ -1176,7 +1187,7 @@ El fallback genera eventos SSE igual que OpenAI, pero con respuestas locales.
 
 Esto permite que la demo no quede rota si:
 
-- Falta credito.
+- Faltan tokens.
 - La key no funciona.
 - OpenAI corta la respuesta.
 - Hay rate limit.
@@ -1255,10 +1266,12 @@ OPENAI_REALTIME_WEBRTC_URL=https://api.openai.com/v1/realtime/calls
 PORTFOLIO_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 PORTFOLIO_CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:*,http://127.0.0.1:*
 PORTFOLIO_IP_PROMPT_LIMIT_ENABLED=true
-PORTFOLIO_IP_PROMPT_LIMIT_MAX_PROMPTS=20
-PORTFOLIO_IP_PROMPT_LIMIT_CHAT_COST=1
-PORTFOLIO_IP_PROMPT_LIMIT_VOICE_MINUTE_COST=5
+PORTFOLIO_IP_TOKEN_LIMIT_MAX_TOKENS=200
+PORTFOLIO_IP_TOKEN_LIMIT_CHAT_COST=10
+PORTFOLIO_IP_TOKEN_LIMIT_VOICE_COST=10
 PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=60
+PORTFOLIO_IP_TOKEN_LIMIT_MAX_VOICE_SECONDS=300
+PORTFOLIO_USAGE_ADMIN_TOKEN=change-me-admin-token
 PORTFOLIO_DB_URL=jdbc:h2:file:./data/portfolio-limits
 ```
 
@@ -1378,7 +1391,7 @@ Equivalencias practicas:
 
 - `Agent`: coordinator, repo-context, workflow-automation, medical-appointment y document-summary.
 - `Tool`: agenda medica, resumen PDF, sesiones Realtime, contexto dinamico y futuras APIs externas.
-- `Session/State`: `sessionId`, creditos por IP, estado de llamada, turno activo y actividad de base.
+- `Session/State`: `sessionId`, tokens por IP, estado de llamada, turno activo y actividad de base.
 - `Workflow`: routing, disponibilidad -> reserva -> reprogramacion, PDF -> resumen -> descarga.
 - `Event trace`: eventos SSE `agent` y `trace` visibles en la consola.
 - `Human gate`: las acciones con impacto se modelan como tools y deben poder confirmar antes de persistir.
@@ -1394,7 +1407,7 @@ WebFlux aparece en varios lugares:
 ```text
 src/App.tsx
 src/components/AgentConsole.tsx
-backend/src/main/java/dev/sg/portfolio/controller/AgentController.java
+backend/src/main/java/dev/sg/portfolio/agent/AgentController.java
 backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java
 README.md
 ```
@@ -1468,13 +1481,13 @@ Si se ve mal la foto:
 ```text
 src/styles.css -> .contact-photo-card
 src/styles.css -> .contact-photo-card img
-src/App.tsx -> ContactPage
+src/pages/ContactPage.tsx
 ```
 
 Si se ve mal el tilt:
 
 ```text
-src/App.tsx -> props de Atropos
+src/pages/HomePage.tsx -> props de Atropos
 src/styles.css -> .tilt-wrap
 ```
 
@@ -1485,19 +1498,20 @@ src/components/AgentConsole.tsx
 src/styles.css -> .message-*, .assistant-content, .console-*
 ```
 
-Si se ve mal una card de producto:
+Si se ve mal una card de demo:
 
 ```text
-src/data/portfolio.ts -> contenido
-src/App.tsx -> ProductsPage
-src/styles.css -> .module-card
+src/data/siteContent.tsx -> demoCards
+src/components/demo/DemoCardGrid.tsx
+src/styles.css -> .demo-card
 ```
 
 Si se ve mal la respuesta de GPT:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java -> instructions
-src/components/AgentConsole.tsx -> FormattedMessage/buildBlocks
+backend/src/main/resources/prompts/core/system.md
+backend/src/main/resources/prompts/agents/coordinator.md
+src/components/agent-console/messageFormatting.tsx -> FormattedMessage/buildBlocks
 ```
 
 ### Donde tocar si el agente responde demasiado largo
@@ -1505,13 +1519,9 @@ src/components/AgentConsole.tsx -> FormattedMessage/buildBlocks
 Archivo:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java
-```
-
-Metodo:
-
-```java
-instructions(AgentRoute route)
+backend/src/main/resources/prompts/core/system.md
+backend/src/main/resources/prompts/agents/coordinator.md
+backend/src/main/java/dev/sg/portfolio/agent/PromptComposerService.java
 ```
 
 Cambiar reglas como:
@@ -1535,8 +1545,9 @@ Si el usuario pide codigo, prioriza codigo.
 Puntos probables:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/OpenAiResponsesClient.java
-backend/src/main/java/dev/sg/portfolio/service/AgentRouter.java
+backend/src/main/resources/prompts/core/system.md
+backend/src/main/java/dev/sg/portfolio/agent/AgentRouter.java
+backend/src/main/java/dev/sg/portfolio/agent/PromptComposerService.java
 src/components/AgentConsole.tsx
 src/api/agentClient.ts
 ```
@@ -1581,9 +1592,9 @@ Para hacerlo real habria que agregar:
 Archivos nuevos probables:
 
 ```text
-backend/src/main/java/dev/sg/portfolio/service/GitHubRepositoryClient.java
-backend/src/main/java/dev/sg/portfolio/service/RepoContextService.java
-backend/src/main/java/dev/sg/portfolio/controller/RepoController.java
+backend/src/main/java/dev/sg/portfolio/repo/GitHubRepositoryClient.java
+backend/src/main/java/dev/sg/portfolio/repo/RepoContextService.java
+backend/src/main/java/dev/sg/portfolio/repo/RepoController.java
 src/components/RepoConnector.tsx
 ```
 
@@ -1601,7 +1612,7 @@ Piezas actuales:
 
 ```text
 backend/src/main/java/dev/sg/portfolio/service/OpenAiRealtimeClient.java
-backend/src/main/java/dev/sg/portfolio/controller/AgentController.java
+backend/src/main/java/dev/sg/portfolio/agent/AgentController.java
 src/components/AgentConsole.tsx
 src/api/agentClient.ts
 ```
@@ -1703,5 +1714,5 @@ El agente responde como consultor porque la demo intenta mostrar:
 Si despues se quiere convertir en generador de codigo, ya hay un camino claro:
 
 ```text
-agregar modos -> ajustar instructions -> ampliar request -> renderizar codigo mejor
+agregar modos -> ajustar prompts -> ampliar request -> renderizar codigo mejor
 ```
