@@ -25,8 +25,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -46,11 +48,16 @@ public class AppointmentDemoService {
     );
 
     private final JdbcTemplate jdbcTemplate;
+    private final int cleanupRetentionDays;
     private final AtomicBoolean schemaReady = new AtomicBoolean(false);
     private final Object schemaLock = new Object();
 
-    public AppointmentDemoService(JdbcTemplate jdbcTemplate) {
+    public AppointmentDemoService(
+            JdbcTemplate jdbcTemplate,
+            @Value("${portfolio.appointment-demo.cleanup-retention-days:2}") int cleanupRetentionDays
+    ) {
         this.jdbcTemplate = jdbcTemplate;
+        this.cleanupRetentionDays = Math.max(1, cleanupRetentionDays);
     }
 
     public AppointmentScheduleResponse schedule(String sessionId, int requestedDays) {
@@ -243,6 +250,20 @@ public class AppointmentDemoService {
                 + " a las " + existing.startAt().toLocalTime() + " al " + nextStart.toLocalDate()
                 + " a las " + nextStart.toLocalTime() + ".");
         return new AppointmentMutationResponse("RESCHEDULED", loadAppointment(existing.id(), sessionId));
+    }
+
+    @Scheduled(cron = "${portfolio.appointment-demo.cleanup-cron:0 20 4 * * *}")
+    public void cleanupExpiredDemoData() {
+        ensureSchema();
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(cleanupRetentionDays);
+        jdbcTemplate.update("""
+                DELETE FROM appointment_audit_log
+                WHERE created_at < ?
+                """, cutoff);
+        jdbcTemplate.update("""
+                DELETE FROM appointment_bookings
+                WHERE end_at < ?
+                """, cutoff);
     }
 
     private void ensureSchema() {

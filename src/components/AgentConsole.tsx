@@ -49,7 +49,7 @@ type Message = {
   content: string
 }
 
-const VOICE_DEMO_LIMIT_MS = 60_000
+const VOICE_DEMO_LIMIT_MS = 120_000
 const openAiLogoSrc = `${import.meta.env.BASE_URL}openai-logo.svg`
 const qwenLogoSrc = `${import.meta.env.BASE_URL}qwen-logo.svg`
 
@@ -1013,7 +1013,7 @@ export function AgentConsole() {
         setConversationStatus('idle')
         setConversationTranscript('')
         setConversationError(
-          `Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} tokens.`,
+          `Se cumplieron los 2 minutos de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} tokens.`,
         )
         assistantVoiceMessageIdRef.current = null
         return
@@ -1022,7 +1022,7 @@ export function AgentConsole() {
       setVoiceStatus('idle')
       setVoiceTranscript('')
       setVoiceError(
-        `Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} tokens.`,
+        `Se cumplieron los 2 minutos de demo de voz. Esta sesion consumio ${openAiVoiceCreditCost} tokens.`,
       )
     }, VOICE_DEMO_LIMIT_MS)
   }

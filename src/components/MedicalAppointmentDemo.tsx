@@ -88,7 +88,7 @@ const consultationOptions: ConsultationOption[] = [
   },
 ]
 
-const VOICE_DEMO_LIMIT_MS = 60_000
+const VOICE_DEMO_LIMIT_MS = 120_000
 const openAiLogoSrc = `${import.meta.env.BASE_URL}openai-logo.svg`
 const qwenLogoSrc = `${import.meta.env.BASE_URL}qwen-logo.svg`
 
@@ -133,6 +133,7 @@ export function MedicalAppointmentDemo() {
   const processedUserItemsRef = useRef<Set<string>>(new Set())
   const processedToolCallsRef = useRef<Set<string>>(new Set())
   const demoLimitTimeoutRef = useRef<number | null>(null)
+  const autoEndAfterReplyRef = useRef(false)
 
   const selectedConsultation = useMemo(
     () =>
@@ -224,6 +225,7 @@ export function MedicalAppointmentDemo() {
     setAppointmentBooked(false)
     setAppointmentRescheduled(false)
     assistantMessageIdRef.current = null
+    autoEndAfterReplyRef.current = false
     processedUserItemsRef.current = new Set()
     processedToolCallsRef.current = new Set()
     setMessages([
@@ -339,13 +341,14 @@ export function MedicalAppointmentDemo() {
     setAppointmentBooked(false)
     setAppointmentRescheduled(false)
     assistantMessageIdRef.current = null
+    autoEndAfterReplyRef.current = false
     processedUserItemsRef.current = new Set()
     processedToolCallsRef.current = new Set()
     setMessages([
       {
         id: crypto.randomUUID(),
         role: 'system',
-        content: `Llamada gratuita: ${selectedConsultation.title}. Web Speech escucha, Qwen responde y las tools actualizan la agenda real.`,
+        content: `Llamada gratuita: ${selectedConsultation.title}. Web Speech escucha, Qwen queda asistido por reglas y las tools actualizan la agenda real.`,
       },
     ])
 
@@ -417,6 +420,9 @@ export function MedicalAppointmentDemo() {
       if (clean) {
         setLiveTranscript('')
         appendUserMessage(`free-${crypto.randomUUID()}`, clean)
+        if (isFarewellIntent(clean)) {
+          autoEndAfterReplyRef.current = true
+        }
         void submitFreeAppointmentTurn(clean)
         return
       }
@@ -492,6 +498,9 @@ export function MedicalAppointmentDemo() {
       setAppointmentBooked(true)
       setAppointmentRescheduled(true)
     }
+    if (tool.action === 'end_call') {
+      autoEndAfterReplyRef.current = true
+    }
   }
 
   function appendAssistantChunk(assistantId: string, text: string) {
@@ -511,12 +520,20 @@ export function MedicalAppointmentDemo() {
 
     if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
       setError('Tu navegador no tiene text-to-speech local; sigo respondiendo por texto.')
+      if (autoEndAfterReplyRef.current) {
+        finishCallByAgent()
+        return
+      }
       restartFreeListening(600)
       return
     }
 
     const speechText = prepareSpeechText(text)
     if (!speechText) {
+      if (autoEndAfterReplyRef.current) {
+        finishCallByAgent()
+        return
+      }
       restartFreeListening(350)
       return
     }
@@ -525,8 +542,20 @@ export function MedicalAppointmentDemo() {
     utterance.lang = 'es-AR'
     utterance.rate = 1
     utterance.pitch = 1
-    utterance.onend = () => restartFreeListening(350)
-    utterance.onerror = () => restartFreeListening(350)
+    utterance.onend = () => {
+      if (autoEndAfterReplyRef.current) {
+        finishCallByAgent()
+        return
+      }
+      restartFreeListening(350)
+    }
+    utterance.onerror = () => {
+      if (autoEndAfterReplyRef.current) {
+        finishCallByAgent()
+        return
+      }
+      restartFreeListening(350)
+    }
 
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(utterance)
@@ -537,10 +566,34 @@ export function MedicalAppointmentDemo() {
     setStatus('idle')
     setLiveTranscript('')
     assistantMessageIdRef.current = null
+    autoEndAfterReplyRef.current = false
     setMessages((current) => [
       ...current,
       { id: crypto.randomUUID(), role: 'system', content: 'Simulacion finalizada.' },
     ])
+  }
+
+  function finishCallByAgent() {
+    cleanupCall()
+    setStatus('idle')
+    setLiveTranscript('')
+    assistantMessageIdRef.current = null
+    autoEndAfterReplyRef.current = false
+    setMessages((current) => [
+      ...current,
+      { id: crypto.randomUUID(), role: 'system', content: 'El agente finalizo la llamada.' },
+    ])
+  }
+
+  function scheduleAgentEndAfterReply() {
+    if (!autoEndAfterReplyRef.current) {
+      return
+    }
+    window.setTimeout(() => {
+      if (autoEndAfterReplyRef.current) {
+        finishCallByAgent()
+      }
+    }, 1200)
   }
 
   function scheduleDemoLimit() {
@@ -551,13 +604,13 @@ export function MedicalAppointmentDemo() {
       setStatus('idle')
       setLiveTranscript('')
       assistantMessageIdRef.current = null
-      setError(`Se cumplio el minuto de demo de voz. Esta sesion consumio ${openAiVoiceTokenCost} tokens.`)
+      setError(`Se cumplieron los 2 minutos de demo de voz. Esta sesion consumio ${openAiVoiceTokenCost} tokens.`)
       setMessages((current) => [
         ...current,
         {
           id: crypto.randomUUID(),
           role: 'system',
-          content: 'Se cumplio el minuto de demo de voz. La llamada se cerro automaticamente.',
+          content: 'Se cumplieron los 2 minutos de demo de voz. La llamada se cerro automaticamente.',
         },
       ])
     }, VOICE_DEMO_LIMIT_MS)
@@ -601,6 +654,9 @@ export function MedicalAppointmentDemo() {
       payload.transcript?.trim()
     ) {
       appendUserMessage(payload.item_id || crypto.randomUUID(), payload.transcript)
+      if (isFarewellIntent(payload.transcript)) {
+        autoEndAfterReplyRef.current = true
+      }
       setLiveTranscript('')
       return
     }
@@ -623,6 +679,9 @@ export function MedicalAppointmentDemo() {
       functionCalls?.forEach((item) => {
         void handleFunctionCall(item)
       })
+      if (!functionCalls?.length && autoEndAfterReplyRef.current) {
+        scheduleAgentEndAfterReply()
+      }
       return
     }
 
@@ -632,6 +691,9 @@ export function MedicalAppointmentDemo() {
       )
     ) {
       assistantMessageIdRef.current = null
+      if (autoEndAfterReplyRef.current) {
+        scheduleAgentEndAfterReply()
+      }
       return
     }
 
@@ -1038,7 +1100,11 @@ export function MedicalAppointmentDemo() {
                         key={appointment.id}
                       >
                         <strong>{formatTime(appointment.startAt)}</strong>
-                        <span>{appointment.specialty}</span>
+                        <span>
+                          {appointment.fromCurrentSession
+                            ? `${appointment.patientName} - ${appointment.specialty}`
+                            : appointment.specialty}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1080,6 +1146,17 @@ function prepareSpeechText(value: string) {
       .replace(/\s*[-–—]\s*/g, ' ')
       .replace(/(\p{L})(\d)/gu, '$1 $2')
       .replace(/(\d)(\p{L})/gu, '$1 $2'),
+  )
+}
+
+function isFarewellIntent(value: string) {
+  const normalized = normalizeSpokenText(value)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+
+  return /\b(chau|adios|hasta luego|nos vemos|eso es todo|corta la llamada|cortar la llamada|termina la llamada|terminar la llamada)\b/.test(
+    normalized,
   )
 }
 

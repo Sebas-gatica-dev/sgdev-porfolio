@@ -23,9 +23,9 @@ public record IpPromptLimitProperties(
             voiceTokenCost = 10;
         }
         if (voiceSessionSeconds <= 0) {
-            voiceSessionSeconds = 60;
+            voiceSessionSeconds = 120;
         }
-        voiceSessionSeconds = Math.min(voiceSessionSeconds, 60);
+        voiceSessionSeconds = Math.min(voiceSessionSeconds, 120);
         if (maxVoiceSeconds <= 0) {
             maxVoiceSeconds = 300;
         }

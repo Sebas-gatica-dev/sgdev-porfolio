@@ -25,7 +25,6 @@ import dev.sg.portfolio.service.FreeModelClient;
 import dev.sg.portfolio.service.OpenAiRealtimeClient;
 import dev.sg.portfolio.service.OpenAiRealtimeException;
 import dev.sg.portfolio.usage.IpPromptLimitService;
-import java.util.List;
 import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -90,12 +89,18 @@ public class AppointmentController {
     }
 
     @PostMapping(value = "/agent/appointment/free/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<Object>> streamFreeAppointment(@RequestBody AppointmentChatRequest request) {
+    public Flux<ServerSentEvent<Object>> streamFreeAppointment(
+            @RequestBody AppointmentChatRequest request,
+            ServerHttpRequest serverRequest
+    ) {
         String message = request == null || request.message() == null ? "" : request.message().trim();
-        String sessionId = request != null && StringUtils.hasText(request.sessionId())
-                ? request.sessionId().trim()
-                : UUID.randomUUID().toString();
-        AppointmentFreeChatService.AppointmentFreeTurn turn = appointmentFreeChatService.prepare(request);
+        String sessionId = appointmentSessionId(serverRequest, request == null ? "" : request.sessionId());
+        AppointmentChatRequest effectiveRequest = new AppointmentChatRequest(
+                message,
+                sessionId,
+                request == null ? "" : request.consultationType()
+        );
+        AppointmentFreeChatService.AppointmentFreeTurn turn = appointmentFreeChatService.prepare(effectiveRequest);
 
         Flux<ServerSentEvent<Object>> header = Flux.just(event("session", new SessionEvent(sessionId)));
         for (AgentTrace trace : turn.traces()) {
@@ -117,9 +122,11 @@ public class AppointmentController {
     @GetMapping("/appointments/demo/schedule")
     public Mono<ResponseEntity<Object>> appointmentSchedule(
             @RequestParam(defaultValue = "15") int days,
-            @RequestParam(required = false) String sessionId
+            @RequestParam(required = false) String sessionId,
+            ServerHttpRequest serverRequest
     ) {
-        return Mono.fromSupplier(() -> appointmentDemoService.schedule(sessionId, days))
+        String effectiveSessionId = appointmentSessionId(serverRequest, sessionId);
+        return Mono.fromSupplier(() -> appointmentDemoService.schedule(effectiveSessionId, days))
                 .cast(Object.class)
                 .flatMap(response -> okResponse(response));
     }
@@ -127,26 +134,46 @@ public class AppointmentController {
     @GetMapping("/appointments/demo/activity")
     public Mono<ResponseEntity<Object>> appointmentActivity(
             @RequestParam String sessionId,
-            @RequestParam(defaultValue = "12") int limit
+            @RequestParam(defaultValue = "12") int limit,
+            ServerHttpRequest serverRequest
     ) {
-        return Mono.fromSupplier(() -> appointmentDemoService.activity(sessionId, limit))
+        String effectiveSessionId = appointmentSessionId(serverRequest, sessionId);
+        return Mono.fromSupplier(() -> appointmentDemoService.activity(effectiveSessionId, limit))
                 .cast(Object.class)
                 .flatMap(response -> okResponse(response));
     }
 
     @PostMapping("/appointments/demo/tools/availability")
     public Mono<ResponseEntity<Object>> searchAppointmentAvailability(
-            @RequestBody AvailabilitySearchRequest request
+            @RequestBody AvailabilitySearchRequest request,
+            ServerHttpRequest serverRequest
     ) {
-        return Mono.fromSupplier(() -> appointmentDemoService.searchAvailability(request))
+        AvailabilitySearchRequest effectiveRequest = new AvailabilitySearchRequest(
+                appointmentSessionId(serverRequest, request == null ? "" : request.sessionId()),
+                request == null ? "" : request.consultationType(),
+                request == null ? "" : request.dateFrom(),
+                request == null ? "" : request.dateTo(),
+                request == null ? "" : request.preferredTimeFrom(),
+                request == null ? "" : request.preferredTimeTo()
+        );
+        return Mono.fromSupplier(() -> appointmentDemoService.searchAvailability(effectiveRequest))
                 .cast(Object.class)
                 .flatMap(response -> okResponse(response))
                 .onErrorResume(IllegalArgumentException.class, error -> badRequestResponse(error));
     }
 
     @PostMapping("/appointments/demo/tools/book")
-    public Mono<ResponseEntity<Object>> bookAppointment(@RequestBody BookAppointmentRequest request) {
-        return Mono.fromSupplier(() -> appointmentDemoService.book(request))
+    public Mono<ResponseEntity<Object>> bookAppointment(
+            @RequestBody BookAppointmentRequest request,
+            ServerHttpRequest serverRequest
+    ) {
+        BookAppointmentRequest effectiveRequest = new BookAppointmentRequest(
+                appointmentSessionId(serverRequest, request == null ? "" : request.sessionId()),
+                request == null ? "" : request.consultationType(),
+                request == null ? "" : request.patientName(),
+                request == null ? "" : request.startAt()
+        );
+        return Mono.fromSupplier(() -> appointmentDemoService.book(effectiveRequest))
                 .cast(Object.class)
                 .flatMap(response -> okResponse(response))
                 .onErrorResume(IllegalArgumentException.class, error -> badRequestResponse(error));
@@ -154,9 +181,14 @@ public class AppointmentController {
 
     @PostMapping("/appointments/demo/tools/reschedule")
     public Mono<ResponseEntity<Object>> rescheduleAppointment(
-            @RequestBody RescheduleAppointmentRequest request
+            @RequestBody RescheduleAppointmentRequest request,
+            ServerHttpRequest serverRequest
     ) {
-        return Mono.fromSupplier(() -> appointmentDemoService.reschedule(request))
+        RescheduleAppointmentRequest effectiveRequest = new RescheduleAppointmentRequest(
+                appointmentSessionId(serverRequest, request == null ? "" : request.sessionId()),
+                request == null ? "" : request.startAt()
+        );
+        return Mono.fromSupplier(() -> appointmentDemoService.reschedule(effectiveRequest))
                 .cast(Object.class)
                 .flatMap(response -> okResponse(response))
                 .onErrorResume(IllegalArgumentException.class, error -> badRequestResponse(error));
@@ -174,6 +206,17 @@ public class AppointmentController {
         return okResponse(session);
     }
 
+    private String appointmentSessionId(ServerHttpRequest request, String fallbackSessionId) {
+        String clientIp = clientIpResolver.resolve(request);
+        if (StringUtils.hasText(clientIp) && !"unknown".equalsIgnoreCase(clientIp)) {
+            return promptLimitService.safetyIdentifier(clientIp);
+        }
+        if (StringUtils.hasText(fallbackSessionId)) {
+            return fallbackSessionId.trim();
+        }
+        return UUID.randomUUID().toString();
+    }
+
     private Flux<ServerSentEvent<Object>> freeAppointmentBody(
             String message,
             AppointmentFreeChatService.AppointmentFreeTurn turn
@@ -182,38 +225,13 @@ public class AppointmentController {
                 event("trace", new AgentTrace(
                         "Modelo gratuito local",
                         freeModel.configured()
-                                ? "Request enviado a FastAPI/Ollama con " + freeModel.model() + " para la demo de turnos."
+                                ? "Qwen queda asistido por reglas de turnos para evitar respuestas inestables."
                                 : "El cliente local no esta configurado; se usa respuesta deterministica de la demo de turnos.",
                         "fallback"
                 ))
         );
 
-        if (List.of("book", "reschedule", "pending", "error").contains(turn.action())) {
-            return Flux.concat(
-                    freeTrace,
-                    textChunks(appointmentFreeChatService.voiceFriendlyReply(
-                            turn.fallbackReply(),
-                            turn.fallbackReply()
-                    ))
-            );
-        }
-
-        Flux<ServerSentEvent<Object>> chunks = freeModel.configured()
-                ? freeModel.streamText(message, turn.instructions())
-                .collectList()
-                .flatMapMany(parts -> textChunks(
-                        appointmentFreeChatService.voiceFriendlyReply(
-                                String.join("", parts),
-                                turn.fallbackReply()
-                        )
-                ))
-                .onErrorResume(error -> textChunks(
-                        appointmentFreeChatService.voiceFriendlyReply(
-                                turn.fallbackReply(),
-                                turn.fallbackReply()
-                        )
-                ))
-                : textChunks(appointmentFreeChatService.voiceFriendlyReply(
+        Flux<ServerSentEvent<Object>> chunks = textChunks(appointmentFreeChatService.voiceFriendlyReply(
                 turn.fallbackReply(),
                 turn.fallbackReply()
         ));

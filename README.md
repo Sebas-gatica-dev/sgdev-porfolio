@@ -42,7 +42,7 @@ PORTFOLIO_IP_PROMPT_LIMIT_ENABLED=true
 PORTFOLIO_IP_TOKEN_LIMIT_MAX_TOKENS=200
 PORTFOLIO_IP_TOKEN_LIMIT_CHAT_COST=10
 PORTFOLIO_IP_TOKEN_LIMIT_VOICE_COST=10
-PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=60
+PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=120
 PORTFOLIO_IP_TOKEN_LIMIT_MAX_VOICE_SECONDS=300
 PORTFOLIO_USAGE_ADMIN_TOKEN=change-me-admin-token
 PORTFOLIO_FREE_MODEL_ENABLED=true
@@ -59,7 +59,7 @@ PORTFOLIO_DB_PASSWORD=postgres
 El backend usa Spring WebFlux para llamar `POST https://api.openai.com/v1/responses` con `stream: true`.
 Para voz, el backend genera un `client_secret` efimero con `POST /v1/realtime/client_secrets`
 y el navegador abre WebRTC contra la Realtime API sin exponer `OPENAI_API_KEY`.
-Cada sesion de voz queda limitada a 60 segundos y consume tokens de demo por IP.
+Cada sesion de voz queda limitada a 120 segundos y consume tokens de demo por IP.
 La UI solo habilita la variante OpenAI de `Dictar` y `Conversar` cuando `/api/portfolio/health`
 devuelve `openaiVoiceAvailable=true`: Realtime configurado y tokens/minutos suficientes para el costo
 de voz. Cuando OpenAI no esta configurado o no alcanza el saldo de voz, los botones pasan al modo
@@ -1269,7 +1269,7 @@ PORTFOLIO_IP_PROMPT_LIMIT_ENABLED=true
 PORTFOLIO_IP_TOKEN_LIMIT_MAX_TOKENS=200
 PORTFOLIO_IP_TOKEN_LIMIT_CHAT_COST=10
 PORTFOLIO_IP_TOKEN_LIMIT_VOICE_COST=10
-PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=60
+PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=120
 PORTFOLIO_IP_TOKEN_LIMIT_MAX_VOICE_SECONDS=300
 PORTFOLIO_USAGE_ADMIN_TOKEN=change-me-admin-token
 PORTFOLIO_DB_URL=jdbc:h2:file:./data/portfolio-limits
