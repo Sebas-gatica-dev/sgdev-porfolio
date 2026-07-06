@@ -42,11 +42,11 @@ export function ContactPage() {
           <Mail size={18} />
           Contacto
         </div>
-        <h1>Potencia proyectos, y negocios con IA.</h1>
+        <h1>Potencia proyectos y negocios con IA.</h1>
         <p>
-             Brindo mis servicios como desarrollador full stack con Empresas y particulares. 
-             Si queres discutir un proyecto, una integracion, o un MVP, podes escribirme un mensaje y te respondere a la brevedad.
-             
+          Brindo servicios de desarrollo full stack para empresas y particulares. Si queres evaluar
+          una integracion, un MVP o una automatizacion con IA, podes escribirme y te respondere a la
+          brevedad.
         </p>
 
         <div className="contact-actions" aria-label="Canales de contacto">
@@ -63,10 +63,13 @@ export function ContactPage() {
 
       <form className="contact-form-panel" onSubmit={handleSubmit}>
         <div className="contact-form-header">
-          <Send size={20} />
+          <span className="contact-form-icon" aria-hidden="true">
+            <Send size={18} />
+          </span>
           <div>
-            <span>Email</span>
-            <strong>Â¡Dejame un mensaje!</strong>
+            <span className="contact-form-channel">Email</span>
+            <strong>Comunicate por mail</strong>
+            <small>Compartime el contexto del proyecto y coordinamos los proximos pasos.</small>
           </div>
         </div>
 
@@ -116,7 +119,7 @@ export function ContactPage() {
 
         <button type="submit" disabled={status === 'submitting'}>
           <Send size={18} />
-          {status === 'submitting' ? 'Enviando...' : 'Enviar mensaje'}
+          {status === 'submitting' ? 'Enviando...' : 'Enviar consulta'}
         </button>
 
         {statusMessage && (

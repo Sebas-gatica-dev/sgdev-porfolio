@@ -1190,23 +1190,34 @@ main {
 }
 
 .contact-form-header {
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.85rem;
   border-bottom: 1px solid var(--line);
   padding-bottom: 0.9rem;
 }
 
-.contact-form-header svg {
+.contact-form-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(227, 95, 67, 0.36);
+  border-radius: 8px;
+  background: rgba(227, 95, 67, 0.1);
   color: var(--coral);
 }
 
 .contact-form-header div {
   display: grid;
-  gap: 0.12rem;
-  text-align: right;
+  gap: 0.18rem;
+  min-width: 0;
+  text-align: left;
 }
 
-.contact-form-header span {
+.contact-form-channel {
   color: var(--blue);
   font-size: 0.74rem;
   font-weight: 900;
@@ -1216,6 +1227,15 @@ main {
 
 .contact-form-header strong {
   color: var(--heading);
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.contact-form-header small {
+  max-width: 32ch;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .contact-form-panel label {
