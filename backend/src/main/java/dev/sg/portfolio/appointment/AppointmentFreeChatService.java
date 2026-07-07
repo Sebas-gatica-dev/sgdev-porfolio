@@ -47,12 +47,19 @@ public class AppointmentFreeChatService {
     private static final Pattern PATIENT_NAME_PATTERN = Pattern.compile(
             "(?iu)\\b(?:para\\s+(?:el|la)\\s+paciente|paciente|a\\s+nombre\\s+de|me\\s+llamo|mi\\s+nombre\\s+es|soy)\\s+([\\p{L}]{2,}(?:\\s+[\\p{L}]{2,}){0,3})"
     );
+    private static final Pattern REVERSED_NAME_PATTERN = Pattern.compile(
+            "(?iu)\\b([\\p{L}]{2,}(?:\\s+[\\p{L}]{2,}){0,2})\\s+es\\s+mi\\s+nombre\\b"
+    );
     private static final Pattern FAREWELL_PATTERN = Pattern.compile(
             "\\b(?:chau|adios|hasta\\s+luego|nos\\s+vemos|gracias\\s+eso\\s+es\\s+todo|eso\\s+es\\s+todo|corta(?:r)?\\s+la\\s+llamada|termina(?:r)?\\s+la\\s+llamada)\\b"
+    );
+    private static final Pattern GRATITUDE_PATTERN = Pattern.compile(
+            "\\b(?:gracias|muchas\\s+gracias|te\\s+agradezco)\\b"
     );
 
     private final AppointmentDemoService appointmentDemoService;
     private final Map<String, PendingAppointment> pendingAppointments = new ConcurrentHashMap<>();
+    private final Map<String, CompletedAppointment> completedAppointments = new ConcurrentHashMap<>();
 
     public AppointmentFreeChatService(AppointmentDemoService appointmentDemoService) {
         this.appointmentDemoService = appointmentDemoService;
@@ -66,11 +73,12 @@ public class AppointmentFreeChatService {
 
         try {
             ToolRun toolRun = runTool(sessionId, consultationType, parsed, message);
-            String fallbackReply = fallbackReply(consultationType, toolRun, parsed);
+            PendingAppointment pending = pendingAppointments.get(sessionId);
+            String fallbackReply = fallbackReply(consultationType, toolRun, parsed, pending);
             return new AppointmentFreeTurn(
                     toolRun.action(),
                     toolRun.detail(),
-                    instructions(consultationType, toolRun, parsed, fallbackReply),
+                    instructions(consultationType, toolRun, parsed, pending, fallbackReply),
                     fallbackReply,
                     List.of(new AgentTrace(
                             "Qwen appointment tools",
@@ -88,6 +96,7 @@ public class AppointmentFreeChatService {
                             consultationType,
                             new ToolRun("error", error.getMessage(), null, null, true),
                             parsed,
+                            pendingAppointments.get(sessionId),
                             fallbackReply
                     ),
                     fallbackReply,
@@ -112,8 +121,31 @@ public class AppointmentFreeChatService {
             );
         }
 
+        CompletedAppointment completed = completedAppointments.get(sessionId);
+        if (completed != null
+                && parsed.gratitudeIntent()
+                && !parsed.farewellIntent()
+                && parsed.date() == null
+                && parsed.time() == null
+                && !parsed.hasTimeWindow()
+                && !parsed.availabilityIntent()
+                && !parsed.bookingIntent()
+                && !parsed.rescheduleIntent()
+                && !parsed.confirmationIntent()) {
+            return new ToolRun(
+                    "post_booking_ack",
+                    "De nada, " + completed.patientName() + ". Tu turno con "
+                            + completed.doctorName() + " quedo reservado para el "
+                            + spokenDateTime(completed.startAt()) + ". Si necesitas algo mas, te escucho.",
+                    null,
+                    null,
+                    false
+            );
+        }
+
         if (parsed.farewellIntent()) {
             pendingAppointments.remove(sessionId);
+            completedAppointments.remove(sessionId);
             return new ToolRun(
                     "end_call",
                     "Gracias por probar la demo. Cierro la llamada.",
@@ -138,6 +170,27 @@ public class AppointmentFreeChatService {
         }
         boolean reschedule = parsed.rescheduleIntent() || (pending != null && pending.reschedule());
         boolean confirmationForPending = parsed.confirmationIntent() && pending != null;
+
+        if (StringUtils.hasText(patientName)
+                && date == null
+                && time == null
+                && !parsed.hasTimeWindow()
+                && !parsed.confirmationIntent()
+                && !parsed.availabilityIntent()
+                && !parsed.bookingIntent()
+                && !parsed.rescheduleIntent()) {
+            pendingAppointments.put(
+                    sessionId,
+                    new PendingAppointment(effectiveConsultationType, null, null, patientName, reschedule)
+            );
+            return new ToolRun(
+                    "pending",
+                    "Perfecto, " + patientName + ". Decime que dia y horario preferis para la consulta.",
+                    null,
+                    null,
+                    false
+            );
+        }
 
         if (date != null && time == null && !parsed.hasTimeWindow()) {
             pendingAppointments.put(
@@ -214,6 +267,10 @@ public class AppointmentFreeChatService {
                 action = "book";
             }
             pendingAppointments.remove(sessionId);
+            completedAppointments.put(
+                    sessionId,
+                    CompletedAppointment.from(mutation, reschedule)
+            );
             return new ToolRun(
                     action,
                     (reschedule ? "Turno reprogramado para " : "Turno reservado para ")
@@ -280,6 +337,10 @@ public class AppointmentFreeChatService {
                     )
             );
             pendingAppointments.remove(sessionId);
+            completedAppointments.put(
+                    sessionId,
+                    CompletedAppointment.from(mutation, true)
+            );
             return new ToolRun(
                     "reschedule",
                     "Turno reprogramado para " + formatAppointment(mutation),
@@ -300,6 +361,10 @@ public class AppointmentFreeChatService {
                     )
             );
             pendingAppointments.remove(sessionId);
+            completedAppointments.put(
+                    sessionId,
+                    CompletedAppointment.from(mutation, false)
+            );
             return new ToolRun(
                     "book",
                     "Turno reservado para " + formatAppointment(mutation),
@@ -321,7 +386,16 @@ public class AppointmentFreeChatService {
                     )
             );
         } else if (exactSlot && availability != null) {
-            pendingAppointments.remove(sessionId);
+            pendingAppointments.put(
+                    sessionId,
+                    new PendingAppointment(
+                            consultationType,
+                            date,
+                            time,
+                            patientName,
+                            reschedule
+                    )
+            );
         }
 
         if (availability != null) {
@@ -371,8 +445,12 @@ public class AppointmentFreeChatService {
             String consultationType,
             ToolRun toolRun,
             ParsedAppointmentMessage parsed,
+            PendingAppointment pending,
             String fallbackReply
     ) {
+        LocalDate effectiveDate = parsed.date() == null && pending != null ? pending.date() : parsed.date();
+        LocalTime effectiveTime = parsed.time() == null && pending != null ? pending.time() : parsed.time();
+        String effectivePatientName = effectivePatientName(parsed, pending);
         return """
                 Estas respondiendo en la demo Medical appointment workflow del portfolio de Sebastian Gatica.
                 Runtime actual: Qwen local + Web Speech del navegador. No digas que estas usando OpenAI.
@@ -383,8 +461,9 @@ public class AppointmentFreeChatService {
                 - Si la tool ejecutada es "book" o "reschedule", responde solo con la respuesta base sugerida y no pidas nombre, horario ni confirmacion.
                 - Para reservar, pedi nombre de pila. No pidas apellido ni datos sensibles.
                 - Si falta nombre de pila, fecha, horario o confirmacion, pedi solo ese dato.
+                - Si el estado guardado ya tiene nombre de pila, no lo vuelvas a pedir.
                 - Si hay una reserva o reprogramacion, confirmala como persistida y menciona que el calendario visible se actualizo.
-                - Si solo hubo disponibilidad, ofrece hasta tres alternativas y pedi nombre de pila + confirmacion antes de guardar.
+                - Si solo hubo disponibilidad, ofrece hasta tres alternativas. Si ya hay nombre guardado, pedi solo horario elegido o confirmacion antes de guardar.
                 - Si el usuario se despide, agradece brevemente e indica que vas a cortar la llamada.
                 - Si varias alternativas son del mismo dia, nombra el dia una sola vez y agrupa los horarios.
                 - Esta respuesta se va a leer en voz alta con Web Speech. Escribi como hablaria una persona.
@@ -397,15 +476,17 @@ public class AppointmentFreeChatService {
                 - Fecha detectada: %s.
                 - Horario detectado: %s.
                 - Paciente detectado: %s.
+                - Estado guardado de la llamada: %s.
                 - Tool ejecutada: %s.
                 - Resultado de tool: %s.
                 - Disponibilidad: %s
                 - Respuesta base sugerida: %s
                 """.formatted(
                 readableConsultation(consultationType),
-                parsed.date() == null ? "sin fecha exacta" : spokenDate(parsed.date()),
-                parsed.time() == null ? "sin horario exacto" : spokenTime(parsed.time()),
-                StringUtils.hasText(parsed.patientName()) ? parsed.patientName() : "sin nombre",
+                effectiveDate == null ? "sin fecha exacta" : spokenDate(effectiveDate),
+                effectiveTime == null ? "sin horario exacto" : spokenTime(effectiveTime),
+                StringUtils.hasText(effectivePatientName) ? effectivePatientName : "sin nombre",
+                pendingStateSummary(pending),
                 toolRun.action(),
                 toolRun.detail(),
                 availabilitySummary(toolRun.availability()),
@@ -416,8 +497,12 @@ public class AppointmentFreeChatService {
     private String fallbackReply(
             String consultationType,
             ToolRun toolRun,
-            ParsedAppointmentMessage parsed
+            ParsedAppointmentMessage parsed,
+            PendingAppointment pending
     ) {
+        LocalDate effectiveDate = parsed.date() == null && pending != null ? pending.date() : parsed.date();
+        LocalTime effectiveTime = parsed.time() == null && pending != null ? pending.time() : parsed.time();
+        String effectivePatientName = effectivePatientName(parsed, pending);
         if ("book".equals(toolRun.action()) || "reschedule".equals(toolRun.action())) {
             return "Listo, " + toolRun.detail()
                     + " Ya queda reflejado en la agenda visible de la demo.";
@@ -427,17 +512,23 @@ public class AppointmentFreeChatService {
             return toolRun.detail();
         }
 
+        if ("post_booking_ack".equals(toolRun.action())) {
+            return toolRun.detail();
+        }
+
         if ("availability".equals(toolRun.action()) && toolRun.availability() != null) {
             AvailabilitySearchResponse availability = toolRun.availability();
             StringBuilder reply = new StringBuilder();
-            if ("AVAILABLE".equals(availability.requestedSlotStatus()) && parsed.date() != null && parsed.time() != null) {
+            if ("AVAILABLE".equals(availability.requestedSlotStatus()) && effectiveDate != null && effectiveTime != null) {
                 reply.append("Ese horario esta disponible para ")
                         .append(readableConsultation(consultationType))
                         .append(". ");
-                if (StringUtils.hasText(parsed.patientName())) {
-                    reply.append("Para guardarlo necesito que confirmes la reserva para ")
-                            .append(parsed.patientName())
-                            .append(".");
+                if (StringUtils.hasText(effectivePatientName)) {
+                    reply.append("Tengo ")
+                            .append(spokenDateTime(LocalDateTime.of(effectiveDate, effectiveTime)))
+                            .append(" para ")
+                            .append(effectivePatientName)
+                            .append(". Confirmame si lo guardo.");
                 } else {
                     reply.append("Pasame tu nombre de pila y confirmame si lo guardo.");
                 }
@@ -448,7 +539,8 @@ public class AppointmentFreeChatService {
                 } else {
                     reply.append("Te puedo ofrecer ")
                             .append(spokenSlotList(availability.availableSlots(), 3))
-                            .append(". Si queres reservar una, decime tu nombre de pila y el horario elegido.");
+                            .append(". Si queres reservar una, decime ")
+                            .append(StringUtils.hasText(effectivePatientName) ? "el horario elegido." : "tu nombre de pila y el horario elegido.");
                 }
             }
             return reply.toString();
@@ -461,6 +553,11 @@ public class AppointmentFreeChatService {
 
         if ("pending".equals(toolRun.action())) {
             return toolRun.detail();
+        }
+
+        if (StringUtils.hasText(effectivePatientName)) {
+            return "Estoy listo para buscar un turno de " + readableConsultation(consultationType)
+                    + " para " + effectivePatientName + ". Decime que dia y horario preferis.";
         }
 
         return "Estoy listo para buscar un turno de " + readableConsultation(consultationType)
@@ -516,6 +613,7 @@ public class AppointmentFreeChatService {
                 || confirmationIntent;
         boolean availabilityIntent = containsAny(normalized, "turno", "dispon", "horario", "consulta", "hay", "puedo", "necesito", "quiero");
         boolean farewellIntent = FAREWELL_PATTERN.matcher(normalized).find();
+        boolean gratitudeIntent = GRATITUDE_PATTERN.matcher(normalized).find();
         return new ParsedAppointmentMessage(
                 date,
                 time,
@@ -526,11 +624,16 @@ public class AppointmentFreeChatService {
                 bookingIntent,
                 rescheduleIntent,
                 confirmationIntent,
-                farewellIntent
+                farewellIntent,
+                gratitudeIntent
         );
     }
 
     private LocalDate extractDate(String original, String normalized) {
+        String normalizedDateText = normalized
+                .replaceAll("\\b(?:por|a|de)\\s+la\\s+manana\\b", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
         Matcher isoMatcher = ISO_DATE_PATTERN.matcher(original);
         if (isoMatcher.find()) {
             return LocalDate.parse(isoMatcher.group(1));
@@ -550,7 +653,7 @@ public class AppointmentFreeChatService {
             return candidate;
         }
 
-        Matcher monthDateMatcher = MONTH_DATE_PATTERN.matcher(normalized);
+        Matcher monthDateMatcher = MONTH_DATE_PATTERN.matcher(normalizedDateText);
         if (monthDateMatcher.find()) {
             int day = StringUtils.hasText(monthDateMatcher.group(1))
                     ? Integer.parseInt(monthDateMatcher.group(1))
@@ -565,18 +668,18 @@ public class AppointmentFreeChatService {
             }
         }
 
-        if (normalized.contains("pasado manana")) {
+        if (normalizedDateText.contains("pasado manana")) {
             return LocalDate.now().plusDays(2);
         }
-        if (normalized.contains("manana")) {
+        if (Pattern.compile("\\bmanana\\b").matcher(normalizedDateText).find()) {
             return LocalDate.now().plusDays(1);
         }
-        if (normalized.contains("hoy")) {
+        if (Pattern.compile("\\bhoy\\b").matcher(normalizedDateText).find()) {
             return LocalDate.now();
         }
 
         for (DayName dayName : DayName.values()) {
-            if (normalized.contains(dayName.token())) {
+            if (normalizedDateText.contains(dayName.token())) {
                 return nextOrSame(dayName.dayOfWeek());
             }
         }
@@ -635,6 +738,14 @@ public class AppointmentFreeChatService {
         Matcher patientMatcher = PATIENT_NAME_PATTERN.matcher(message);
         if (patientMatcher.find()) {
             String candidate = cleanPatientName(patientMatcher.group(1));
+            if (validPatientName(candidate)) {
+                return firstGivenName(candidate);
+            }
+        }
+
+        Matcher reversedMatcher = REVERSED_NAME_PATTERN.matcher(message);
+        if (reversedMatcher.find()) {
+            String candidate = cleanPatientName(reversedMatcher.group(1));
             if (validPatientName(candidate)) {
                 return firstGivenName(candidate);
             }
@@ -866,6 +977,33 @@ public class AppointmentFreeChatService {
                 + " el " + spokenDateTime(LocalDateTime.parse(mutation.appointment().startAt()));
     }
 
+    private String effectivePatientName(ParsedAppointmentMessage parsed, PendingAppointment pending) {
+        if (StringUtils.hasText(parsed.patientName())) {
+            return parsed.patientName();
+        }
+        return pending == null ? "" : pending.patientName();
+    }
+
+    private String pendingStateSummary(PendingAppointment pending) {
+        if (pending == null) {
+            return "sin datos guardados";
+        }
+        List<String> parts = new ArrayList<>();
+        if (StringUtils.hasText(pending.patientName())) {
+            parts.add("nombre " + pending.patientName());
+        }
+        if (pending.date() != null) {
+            parts.add("fecha " + spokenDate(pending.date()));
+        }
+        if (pending.time() != null) {
+            parts.add("horario " + spokenTime(pending.time()));
+        }
+        if (parts.isEmpty()) {
+            return "sin datos guardados";
+        }
+        return naturalJoin(parts);
+    }
+
     private String replaceDateTimesForSpeech(String value) {
         Pattern dateTimePattern = Pattern.compile("\\b(\\d{4})-(\\d{2})-(\\d{2})(?:[T\\s]?)(\\d{1,2}):(\\d{2})\\b");
         Matcher dateTimeMatcher = dateTimePattern.matcher(value);
@@ -1050,7 +1188,8 @@ public class AppointmentFreeChatService {
             boolean bookingIntent,
             boolean rescheduleIntent,
             boolean confirmationIntent,
-            boolean farewellIntent
+            boolean farewellIntent,
+            boolean gratitudeIntent
     ) {
         private ParsedAppointmentMessage withAppointment(
                 LocalDate nextDate,
@@ -1069,7 +1208,8 @@ public class AppointmentFreeChatService {
                     nextBookingIntent,
                     nextRescheduleIntent,
                     confirmationIntent,
-                    farewellIntent
+                    farewellIntent,
+                    gratitudeIntent
             );
         }
 
@@ -1094,6 +1234,22 @@ public class AppointmentFreeChatService {
                     date,
                     time,
                     nextPatientName,
+                    reschedule
+            );
+        }
+    }
+
+    private record CompletedAppointment(
+            String patientName,
+            String doctorName,
+            LocalDateTime startAt,
+            boolean reschedule
+    ) {
+        private static CompletedAppointment from(AppointmentMutationResponse mutation, boolean reschedule) {
+            return new CompletedAppointment(
+                    mutation.appointment().patientName(),
+                    mutation.appointment().doctorName(),
+                    LocalDateTime.parse(mutation.appointment().startAt()),
                     reschedule
             );
         }

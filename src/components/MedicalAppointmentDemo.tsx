@@ -89,6 +89,7 @@ const consultationOptions: ConsultationOption[] = [
 ]
 
 const VOICE_DEMO_LIMIT_MS = 120_000
+const CALL_INACTIVITY_LIMIT_MS = 60_000
 const openAiLogoSrc = `${import.meta.env.BASE_URL}openai-logo.svg`
 const qwenLogoSrc = `${import.meta.env.BASE_URL}qwen-logo.svg`
 
@@ -133,6 +134,7 @@ export function MedicalAppointmentDemo() {
   const processedUserItemsRef = useRef<Set<string>>(new Set())
   const processedToolCallsRef = useRef<Set<string>>(new Set())
   const demoLimitTimeoutRef = useRef<number | null>(null)
+  const inactivityTimeoutRef = useRef<number | null>(null)
   const autoEndAfterReplyRef = useRef(false)
 
   const selectedConsultation = useMemo(
@@ -252,6 +254,7 @@ export function MedicalAppointmentDemo() {
       const session = await createAppointmentVoiceSession(selectedConsultation.id)
       setModel(session.model)
       scheduleDemoLimit()
+      scheduleCallInactivityLimit()
 
       const peerConnection = new RTCPeerConnection()
       peerConnectionRef.current = peerConnection
@@ -351,6 +354,7 @@ export function MedicalAppointmentDemo() {
         content: `Llamada gratuita: ${selectedConsultation.title}. Web Speech escucha, Qwen queda asistido por reglas y las tools actualizan la agenda real.`,
       },
     ])
+    scheduleCallInactivityLimit()
 
     window.setTimeout(() => {
       if (!browserCallActiveRef.current) {
@@ -398,6 +402,7 @@ export function MedicalAppointmentDemo() {
       latestTranscript = normalizeSpokenText(
         [finalTranscript, interimTranscript].filter(Boolean).join(' '),
       )
+      scheduleCallInactivityLimit()
       setLiveTranscript(latestTranscript)
     }
 
@@ -407,6 +412,7 @@ export function MedicalAppointmentDemo() {
       }
       setStatus('error')
       setError(`La llamada gratuita se pauso (${event.error}).`)
+      clearCallInactivityLimit()
       cleanupBrowserCall()
     }
 
@@ -418,6 +424,7 @@ export function MedicalAppointmentDemo() {
       browserRecognitionRef.current = null
       const clean = normalizeSpokenText(finalTranscript || latestTranscript)
       if (clean) {
+        scheduleCallInactivityLimit()
         setLiveTranscript('')
         appendUserMessage(`free-${crypto.randomUUID()}`, clean)
         if (isFarewellIntent(clean)) {
@@ -524,6 +531,7 @@ export function MedicalAppointmentDemo() {
         finishCallByAgent()
         return
       }
+      scheduleCallInactivityLimit()
       restartFreeListening(600)
       return
     }
@@ -534,6 +542,7 @@ export function MedicalAppointmentDemo() {
         finishCallByAgent()
         return
       }
+      scheduleCallInactivityLimit()
       restartFreeListening(350)
       return
     }
@@ -543,17 +552,25 @@ export function MedicalAppointmentDemo() {
     utterance.rate = 1
     utterance.pitch = 1
     utterance.onend = () => {
+      if (!browserCallActiveRef.current) {
+        return
+      }
       if (autoEndAfterReplyRef.current) {
         finishCallByAgent()
         return
       }
+      scheduleCallInactivityLimit()
       restartFreeListening(350)
     }
     utterance.onerror = () => {
+      if (!browserCallActiveRef.current) {
+        return
+      }
       if (autoEndAfterReplyRef.current) {
         finishCallByAgent()
         return
       }
+      scheduleCallInactivityLimit()
       restartFreeListening(350)
     }
 
@@ -616,10 +633,45 @@ export function MedicalAppointmentDemo() {
     }, VOICE_DEMO_LIMIT_MS)
   }
 
+  function scheduleCallInactivityLimit() {
+    if (
+      !browserCallActiveRef.current &&
+      !peerConnectionRef.current &&
+      !mediaStreamRef.current &&
+      !dataChannelRef.current
+    ) {
+      return
+    }
+    clearCallInactivityLimit()
+    inactivityTimeoutRef.current = window.setTimeout(() => {
+      inactivityTimeoutRef.current = null
+      cleanupCall()
+      setStatus('idle')
+      setLiveTranscript('')
+      assistantMessageIdRef.current = null
+      autoEndAfterReplyRef.current = false
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: 'system',
+          content: 'Se cerro la llamada por un minuto sin interaccion.',
+        },
+      ])
+    }, CALL_INACTIVITY_LIMIT_MS)
+  }
+
   function clearDemoLimit() {
     if (demoLimitTimeoutRef.current !== null) {
       window.clearTimeout(demoLimitTimeoutRef.current)
       demoLimitTimeoutRef.current = null
+    }
+  }
+
+  function clearCallInactivityLimit() {
+    if (inactivityTimeoutRef.current !== null) {
+      window.clearTimeout(inactivityTimeoutRef.current)
+      inactivityTimeoutRef.current = null
     }
   }
 
@@ -641,10 +693,12 @@ export function MedicalAppointmentDemo() {
 
     if (payload.type === 'session.created') {
       setStatus('live')
+      scheduleCallInactivityLimit()
       return
     }
 
     if (payload.type === 'conversation.item.input_audio_transcription.delta' && payload.delta) {
+      scheduleCallInactivityLimit()
       setLiveTranscript((current) => `${current}${payload.delta}`.replace(/\s+/g, ' '))
       return
     }
@@ -653,6 +707,7 @@ export function MedicalAppointmentDemo() {
       payload.type === 'conversation.item.input_audio_transcription.completed' &&
       payload.transcript?.trim()
     ) {
+      scheduleCallInactivityLimit()
       appendUserMessage(payload.item_id || crypto.randomUUID(), payload.transcript)
       if (isFarewellIntent(payload.transcript)) {
         autoEndAfterReplyRef.current = true
@@ -667,6 +722,7 @@ export function MedicalAppointmentDemo() {
       ) &&
       payload.delta
     ) {
+      scheduleCallInactivityLimit()
       appendAssistantDelta(payload.delta)
       return
     }
@@ -681,6 +737,8 @@ export function MedicalAppointmentDemo() {
       })
       if (!functionCalls?.length && autoEndAfterReplyRef.current) {
         scheduleAgentEndAfterReply()
+      } else {
+        scheduleCallInactivityLimit()
       }
       return
     }
@@ -693,6 +751,8 @@ export function MedicalAppointmentDemo() {
       assistantMessageIdRef.current = null
       if (autoEndAfterReplyRef.current) {
         scheduleAgentEndAfterReply()
+      } else {
+        scheduleCallInactivityLimit()
       }
       return
     }
@@ -794,6 +854,7 @@ export function MedicalAppointmentDemo() {
 
   function cleanupCall() {
     clearDemoLimit()
+    clearCallInactivityLimit()
     cleanupBrowserCall()
 
     dataChannelRef.current?.removeEventListener('message', handleRealtimeEvent)

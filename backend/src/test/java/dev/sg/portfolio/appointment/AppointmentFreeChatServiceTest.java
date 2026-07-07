@@ -65,6 +65,77 @@ class AppointmentFreeChatServiceTest {
     }
 
     @Test
+    void remembersNameGivenBeforeDateOrTime() {
+        AppointmentDemoService demoService = mock(AppointmentDemoService.class);
+        when(demoService.searchAvailability(any())).thenReturn(availableAtTen());
+        AppointmentFreeChatService freeChat = new AppointmentFreeChatService(demoService);
+
+        AppointmentFreeChatService.AppointmentFreeTurn nameTurn = freeChat.prepare(
+                new AppointmentChatRequest("Sebastian es mi nombre", "session-name-first", "traumatology")
+        );
+        AppointmentFreeChatService.AppointmentFreeTurn slotTurn = freeChat.prepare(
+                new AppointmentChatRequest("el 9 de julio a las 10", "session-name-first", "traumatology")
+        );
+
+        assertThat(nameTurn.action()).isEqualTo("pending");
+        assertThat(nameTurn.fallbackReply()).contains("Sebastian");
+        assertThat(slotTurn.action()).isEqualTo("availability");
+        assertThat(slotTurn.fallbackReply()).contains("Sebastian");
+        assertThat(slotTurn.fallbackReply()).contains("Confirmame");
+        assertThat(slotTurn.fallbackReply()).doesNotContain("Pasame tu nombre");
+    }
+
+    @Test
+    void keepsNameAndDateAfterOccupiedSlotWhenUserChoosesAnotherTime() {
+        AppointmentDemoService demoService = mock(AppointmentDemoService.class);
+        when(demoService.searchAvailability(any()))
+                .thenReturn(occupiedAtEightThirty(), availableAtTen(), availableAtTen());
+        when(demoService.book(any())).thenReturn(bookedAtTen());
+        AppointmentFreeChatService freeChat = new AppointmentFreeChatService(demoService);
+
+        freeChat.prepare(new AppointmentChatRequest("Sebastian es mi nombre", "session-occupied-flow", "traumatology"));
+        AppointmentFreeChatService.AppointmentFreeTurn occupiedTurn = freeChat.prepare(
+                new AppointmentChatRequest("el 9 de julio a las 8:30", "session-occupied-flow", "traumatology")
+        );
+        AppointmentFreeChatService.AppointmentFreeTurn newTimeTurn = freeChat.prepare(
+                new AppointmentChatRequest("a las 10 de la manana", "session-occupied-flow", "traumatology")
+        );
+        AppointmentFreeChatService.AppointmentFreeTurn bookedTurn = freeChat.prepare(
+                new AppointmentChatRequest("si confirmado", "session-occupied-flow", "traumatology")
+        );
+
+        ArgumentCaptor<BookAppointmentRequest> captor = ArgumentCaptor.forClass(BookAppointmentRequest.class);
+        verify(demoService).book(captor.capture());
+        assertThat(occupiedTurn.fallbackReply()).doesNotContain("nombre de pila");
+        assertThat(occupiedTurn.fallbackReply()).contains("horario elegido");
+        assertThat(newTimeTurn.fallbackReply()).contains("Sebastian");
+        assertThat(newTimeTurn.fallbackReply()).doesNotContain("Pasame tu nombre");
+        assertThat(bookedTurn.action()).isEqualTo("book");
+        assertThat(captor.getValue().patientName()).isEqualTo("Sebastian");
+        assertThat(captor.getValue().startAt()).isEqualTo("2026-07-09T10:00:00");
+    }
+
+    @Test
+    void acknowledgesThanksAfterBookingWithoutEndingCall() {
+        AppointmentDemoService demoService = mock(AppointmentDemoService.class);
+        when(demoService.searchAvailability(any())).thenReturn(availableAtTen());
+        when(demoService.book(any())).thenReturn(bookedAtTen());
+        AppointmentFreeChatService freeChat = new AppointmentFreeChatService(demoService);
+
+        freeChat.prepare(new AppointmentChatRequest("el 9 de julio", "session-thanks", "traumatology"));
+        freeChat.prepare(new AppointmentChatRequest("a las 10", "session-thanks", "traumatology"));
+        freeChat.prepare(new AppointmentChatRequest("Sebastian confirmo", "session-thanks", "traumatology"));
+        AppointmentFreeChatService.AppointmentFreeTurn thanksTurn = freeChat.prepare(
+                new AppointmentChatRequest("gracias", "session-thanks", "traumatology")
+        );
+
+        assertThat(thanksTurn.action()).isEqualTo("post_booking_ack");
+        assertThat(thanksTurn.fallbackReply()).contains("De nada, Sebastian");
+        assertThat(thanksTurn.fallbackReply()).contains("te escucho");
+        assertThat(thanksTurn.fallbackReply()).doesNotContain("Cierro la llamada");
+    }
+
+    @Test
     void doesNotTreatPlainConfirmationAsPatientName() {
         AppointmentDemoService demoService = mock(AppointmentDemoService.class);
         when(demoService.searchAvailability(any())).thenReturn(availableAtTen());
@@ -120,6 +191,30 @@ class AppointmentFreeChatServiceTest {
                         "2026-07-09T10:00:00",
                         "2026-07-09T10:30:00"
                 ))
+        );
+    }
+
+    private AvailabilitySearchResponse occupiedAtEightThirty() {
+        return new AvailabilitySearchResponse(
+                "traumatology",
+                "OCCUPIED",
+                "Ese horario ya figura ocupado en la agenda.",
+                List.of(
+                        new AppointmentSlotSuggestion(
+                                "trauma",
+                                "Dr. Hernan Varela",
+                                "Traumatologo",
+                                "2026-07-09T09:00:00",
+                                "2026-07-09T09:30:00"
+                        ),
+                        new AppointmentSlotSuggestion(
+                                "trauma",
+                                "Dr. Hernan Varela",
+                                "Traumatologo",
+                                "2026-07-09T10:00:00",
+                                "2026-07-09T10:30:00"
+                        )
+                )
         );
     }
 
