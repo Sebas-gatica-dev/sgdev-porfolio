@@ -113,7 +113,7 @@ export function prepareSpeechText(value: string) {
       )
       .replace(/[\[\]{}()]/g, ' ')
       .replace(/[|*_#>]/g, ' ')
-      .replace(/\s*[-â€“â€”]\s*/g, ' ')
+      .replace(/\s*[-\u2013\u2014]\s*/g, ' ')
       .replace(/(\p{L})(\d)/gu, '$1 $2')
       .replace(/(\d)(\p{L})/gu, '$1 $2'),
   )
@@ -138,7 +138,7 @@ function timeForSpeech(hourValue: string, minuteValue: string) {
     return `${hourValue}:${minuteValue}`
   }
   const spokenHour = hour % 12 === 0 ? 12 : hour % 12
-  const period = hour === 12 ? 'del mediodia' : hour < 12 ? 'de la maÃ±ana' : 'de la tarde'
+  const period = hour === 12 ? 'del mediodia' : hour < 12 ? 'de la mañana' : 'de la tarde'
   if (minute === 0) {
     return `${spokenHour} ${period}`
   }

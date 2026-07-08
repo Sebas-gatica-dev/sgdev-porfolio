@@ -32,9 +32,9 @@ export const profileLinks = {
 }
 
 export const professionalProfile = [
-  'Cuento con 3 aÃ±os de experiencia construyendo aplicaciones robustas y escalables en entornos empresariales y proyectos freelance.',
-  'Me especializo en el desarrollo backend con Java y Spring Boot, y en la creaciÃ³n de interfaces modernas y performantes con ReactJS y Next.js.',
-  'AdemÃ¡s, diseÃ±o e implemento flujos multiagente con Google ADK para automatizar procesos y potenciar soluciones inteligentes sobre infraestructura de microservicios.',
+  'Cuento con 3 años de experiencia construyendo aplicaciones robustas y escalables en entornos empresariales y proyectos freelance.',
+  'Me especializo en el desarrollo backend con Java y Spring Boot, y en la creación de interfaces modernas y performantes con ReactJS y Next.js.',
+  'Además, diseño e implemento flujos multiagente con Google ADK para automatizar procesos y potenciar soluciones inteligentes sobre infraestructura de microservicios.',
 ]
 
 export const professionalCapabilities = [
@@ -45,23 +45,23 @@ export const professionalCapabilities = [
   },
   {
     title: 'Agentes de IA',
-    text: 'CreaciÃ³n de agentes personalizados en OpenClaw, orquestaciÃ³n multi agente y funcionalidades a medida.',
+    text: 'Creación de agentes personalizados en OpenClaw, orquestación multi agente y funcionalidades a medida.',
     icon: BrainCircuit,
   },
   {
     title: 'Infraestructura',
-    text: 'AdministraciÃ³n de VPS, Nginx, Docker, bases de datos y despliegue de modelos LLM open source.',
+    text: 'Administración de VPS, Nginx, Docker, bases de datos y despliegue de modelos LLM open source.',
     icon: ServerCog,
   },
   {
-    title: 'IntegraciÃ³n continua',
-    text: 'Flujos CI/CD con Terraform, GitHub Actions y mÃºltiples gestores de versiÃ³n.',
+    title: 'Integración continua',
+    text: 'Flujos CI/CD con Terraform, GitHub Actions y múltiples gestores de versión.',
     icon: Workflow,
   },
 ]
 
 export const professionalStats = [
-  { value: '3+ aÃ±os', label: 'Experiencia', icon: CalendarDays },
+  { value: '3+ años', label: 'Experiencia', icon: CalendarDays },
   { value: 'Proyectos', label: 'Empresariales y freelance', icon: Briefcase },
   { value: 'Enfoque', label: 'Calidad, escalabilidad e IA', icon: Target },
 ]
@@ -69,25 +69,25 @@ export const professionalStats = [
 export const professionalStackRows = [
   {
     title: 'Java + Spring Boot',
-    text: 'APIs RESTful, arquitectura por capas y microservicios listos para producciÃ³n.',
+    text: 'APIs RESTful, arquitectura por capas y microservicios listos para producción.',
     icon: Coffee,
     tags: ['Java', 'Spring Boot'],
   },
   {
     title: 'ReactJS + Next.js',
-    text: 'Interfaces modernas, componentes reutilizables y experiencias rÃ¡pidas y optimizadas.',
+    text: 'Interfaces modernas, componentes reutilizables y experiencias rápidas y optimizadas.',
     icon: Code2,
     tags: ['React', 'Next.js'],
   },
   {
     title: 'Multiagentes con Google ADK',
-    text: 'DiseÃ±o de flujos multiagente para automatizar tareas y resolver problemas complejos.',
+    text: 'Diseño de flujos multiagente para automatizar tareas y resolver problemas complejos.',
     icon: BrainCircuit,
     tags: ['ADK'],
   },
   {
     title: 'OpenClaw',
-    text: 'CreaciÃ³n y personalizaciÃ³n de agentes con herramientas, memoria y orquestaciÃ³n a medida.',
+    text: 'Creación y personalización de agentes con herramientas, memoria y orquestación a medida.',
     icon: OpenClawIcon,
     tags: ['OpenClaw'],
   },

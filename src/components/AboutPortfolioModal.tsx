@@ -41,7 +41,7 @@ export function AboutPortfolioModal({ onClose }: { onClose: () => void }) {
         <div className="about-modal-body">
           <p className="about-modal-lead">
             Este porfolio fue creado con ayuda de herramientas de IA, principalmente Codex.
-            En realidad, fue el comienzo de algo mucho mÃ¡s profundo.
+            En realidad, fue el comienzo de algo mucho más profundo.
           </p>
 
           <ul className="about-modal-points">
@@ -54,8 +54,8 @@ export function AboutPortfolioModal({ onClose }: { onClose: () => void }) {
               integraciones, prompts y funcionalidades conectables al backend.
             </li>
             <li>
-              En mi experiencia laboral, tambiÃ©n creamos herramientas para ayudar a otros equipos
-              a codear: agentes generadores de cÃ³digo que consumÃ­an metadata empresarial cargada
+              En mi experiencia laboral, también creamos herramientas para ayudar a otros equipos
+              a codear: agentes generadores de código que consumían metadata empresarial cargada
               de forma vectorial.
             </li>
           </ul>
