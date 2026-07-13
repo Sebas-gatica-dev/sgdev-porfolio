@@ -3845,6 +3845,27 @@ main {
     background-size: 22px 22px;
   }
 
+  :root[data-theme="dark"] body {
+    background: var(--canvas);
+  }
+
+  :root[data-theme="dark"] .app-shell {
+    background: linear-gradient(180deg, var(--canvas), var(--canvas-bottom));
+    background-size: auto;
+  }
+
+  :root[data-theme="dark"] .button-secondary,
+  :root[data-theme="dark"] .stack-strip span,
+  :root[data-theme="dark"] .professional-capability-card,
+  :root[data-theme="dark"] .professional-summary-panel,
+  :root[data-theme="dark"] .professional-stack-row,
+  :root[data-theme="dark"] .skill-pill,
+  :root[data-theme="dark"] .home-demos-cta,
+  :root[data-theme="dark"] .footer-links a,
+  :root[data-theme="dark"] .footer-links button {
+    background: var(--surface);
+  }
+
   main,
   .footer {
     width: min(100% - 1rem, 1180px);
