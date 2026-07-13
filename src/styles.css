@@ -3841,7 +3841,7 @@ main {
 
 @media (max-width: 720px) {
   .app-shell {
-    padding-bottom: calc(4.95rem + env(safe-area-inset-bottom));
+    padding-bottom: 0;
     background: linear-gradient(180deg, var(--canvas), var(--canvas-bottom));
     background-size: auto;
   }
@@ -3873,6 +3873,8 @@ main {
   }
 
   .nav {
+    position: relative;
+    top: auto;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.65rem;
@@ -3908,19 +3910,21 @@ main {
   }
 
   .mobile-tabbar {
-    position: fixed;
-    right: max(0.5rem, env(safe-area-inset-right));
-    bottom: max(0.5rem, env(safe-area-inset-bottom));
-    left: max(0.5rem, env(safe-area-inset-left));
+    position: relative;
+    right: auto;
+    bottom: auto;
+    left: auto;
     z-index: 30;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.25rem;
+    width: min(100% - 1rem, 1180px);
+    margin: 0.5rem auto 0;
     border: 1px solid var(--nav-border);
     border-radius: 8px;
     padding: 0.35rem;
     background: var(--canvas);
-    box-shadow: var(--shadow-lg);
+    box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
