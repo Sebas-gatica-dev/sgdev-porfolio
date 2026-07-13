@@ -1,5 +1,6 @@
 import Atropos from 'atropos/react'
 import { ArrowRight, ShieldCheck, Sparkles, Mail } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { Route } from '../app/routing'
 import { assetPath } from '../app/routing'
 import { PageLink } from '../components/PageLink'
@@ -11,6 +12,8 @@ import {
   professionalStackRows,
   professionalStats,
 } from '../data/siteContent'
+
+const MOBILE_HERO_QUERY = '(max-width: 720px)'
 
 export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
   return (
@@ -46,16 +49,7 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
           </div>
         </div>
 
-        <Atropos
-          className="hero-tilt tilt-wrap"
-          activeOffset={18}
-          rotateXMax={4}
-          rotateYMax={6}
-          rotateTouch={false}
-          shadow={false}
-          highlight={false}
-          aria-label="Resumen del portfolio"
-        >
+        <HeroVisualShell>
           <div className="hero-visual">
             <div className="visual-header" data-atropos-offset="-1">
               <img src={assetPath('favicon.svg')} alt="" />
@@ -117,7 +111,7 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
               ))}
             </div>
           </div>
-        </Atropos>
+        </HeroVisualShell>
       </section>
 
       <ProfessionalProfileSection />
@@ -156,6 +150,50 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
         </PageLink>
       </section>
     </>
+  )
+}
+
+function useIsMobileHero() {
+  const [isMobileHero, setIsMobileHero] = useState(() =>
+    window.matchMedia(MOBILE_HERO_QUERY).matches,
+  )
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(MOBILE_HERO_QUERY)
+    const syncMobileHero = () => setIsMobileHero(mediaQuery.matches)
+
+    syncMobileHero()
+    mediaQuery.addEventListener('change', syncMobileHero)
+    return () => mediaQuery.removeEventListener('change', syncMobileHero)
+  }, [])
+
+  return isMobileHero
+}
+
+function HeroVisualShell({ children }: { children: ReactNode }) {
+  const isMobileHero = useIsMobileHero()
+
+  if (isMobileHero) {
+    return (
+      <div className="hero-tilt tilt-wrap" aria-label="Resumen del portfolio">
+        {children}
+      </div>
+    )
+  }
+
+  return (
+    <Atropos
+      className="hero-tilt tilt-wrap"
+      activeOffset={18}
+      rotateXMax={4}
+      rotateYMax={6}
+      rotateTouch={false}
+      shadow={false}
+      highlight={false}
+      aria-label="Resumen del portfolio"
+    >
+      {children}
+    </Atropos>
   )
 }
 
