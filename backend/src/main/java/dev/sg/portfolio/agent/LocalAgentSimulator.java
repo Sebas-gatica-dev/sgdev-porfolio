@@ -162,19 +162,16 @@ public class LocalAgentSimulator {
     }
 
     private String cvBackedProfileSummary() {
-        return "Sebastian Gatica es Java Full Stack Developer con más de 2 años de experiencia profesional. "
-                + "Su foco combina backend Java/Spring, frontend React/Next.js, microservicios, integraciones, "
-                + "bases de datos y soluciones con IA aplicada.\n\n"
-                + "Experiencia destacada:\n"
-                + "- Bank S.A. (Oct 2023-Aug 2024): proyectos empresariales, migraciones de PHP/Laravel a Java/Spring, "
-                + "Blade a React, gestión documental, firma digital, VPS Linux, Nginx y AWS S3/EC2.\n"
-                + "- Proyecto Emplag (Jul 2024-Jan 2025): CRM a medida con TALL Stack y MySQL, geolocalización en tiempo real, "
-                + "trazabilidad de procesos, inventario QR, facturación ARCA y documentos en AWS S3.\n"
-                + "- CFOTECH S.R.L. (Feb 2026-Jul 2026): refactors de monolitos a microservicios, Google ADK, flujos multiagente, "
-                + "prompt engineering, skills, RAG, APIs, integraciones, modelado de datos y mantenimiento evolutivo.\n\n"
-                + "Stack principal: Java, Spring Boot, Spring MVC, Spring Data JPA, WebFlux, Reactor, R2DBC, PostgreSQL/pgvector, "
-                + "MySQL, MariaDB, React, Next.js, TypeScript, Vite, TailwindCSS, Laravel, Docker, Nginx, Linux VPS, "
-                + "AWS, Google Cloud, Terraform y CI/CD.";
+        return "### Resumen general\n"
+                + "- Sebastian Gatica es Java Full Stack Developer con más de 2 años de experiencia profesional.\n"
+                + "- Su foco combina backend Java/Spring, frontend React/Next.js, microservicios, integraciones, bases de datos y soluciones con IA aplicada.\n\n"
+                + "### Experiencia destacada\n"
+                + "- **Bank S.A.** | Java Full Stack Developer | Oct 2023 - Aug 2024: migraciones de PHP/Laravel a Java/Spring, Blade a React, gestión documental, firma digital, VPS Linux, Nginx y AWS S3/EC2.\n"
+                + "- **Proyecto Emplag** | Full Stack TALL Stack Developer | Jul 2024 - Jan 2025: CRM a medida con MySQL, geolocalización en tiempo real, trazabilidad de procesos, inventario QR, facturación ARCA y documentos en AWS S3.\n"
+                + "- **CFOTECH S.R.L.** | Java Full Stack Developer, AI & Agents | Feb 2026 - Jul 2026: refactors de monolitos a microservicios, Google ADK, flujos multiagente, prompt engineering, skills, RAG, APIs e integraciones.\n\n"
+                + "### Tecnologías y enfoques recurrentes\n"
+                + "- Java, Spring Boot, Spring MVC, Spring Data JPA, WebFlux, Reactor, R2DBC y PostgreSQL/pgvector.\n"
+                + "- React, Next.js, TypeScript, Vite, TailwindCSS, Laravel, Docker, Nginx, Linux VPS, AWS, Google Cloud, Terraform y CI/CD.";
     }
 
     private String normalizeForIntent(String input) {
