@@ -3837,29 +3837,11 @@ main {
 @media (max-width: 720px) {
   .app-shell {
     padding-bottom: 0;
-    background: linear-gradient(180deg, var(--canvas), var(--canvas-bottom));
-    background-size: auto;
+    background-size: 22px 22px;
   }
 
   :root[data-theme="dark"] body {
     background: var(--canvas);
-  }
-
-  :root[data-theme="dark"] .app-shell {
-    background: linear-gradient(180deg, var(--canvas), var(--canvas-bottom));
-    background-size: auto;
-  }
-
-  :root[data-theme="dark"] .button-secondary,
-  :root[data-theme="dark"] .stack-strip span,
-  :root[data-theme="dark"] .professional-capability-card,
-  :root[data-theme="dark"] .professional-summary-panel,
-  :root[data-theme="dark"] .professional-stack-row,
-  :root[data-theme="dark"] .skill-pill,
-  :root[data-theme="dark"] .home-demos-cta,
-  :root[data-theme="dark"] .footer-links a,
-  :root[data-theme="dark"] .footer-links button {
-    background: var(--surface);
   }
 
   main,
@@ -3959,25 +3941,6 @@ main {
     align-items: start;
     gap: 1.1rem;
     padding: 1.25rem 0 1.75rem;
-  }
-
-  .hero-band > .hero-tilt {
-    display: none;
-  }
-
-  .hero-tilt.atropos {
-    perspective: none;
-    touch-action: pan-y;
-    transform: none !important;
-  }
-
-  .hero-tilt .atropos-scale,
-  .hero-tilt .atropos-rotate,
-  .hero-tilt .atropos-inner,
-  .hero-tilt [data-atropos-offset] {
-    transform: none !important;
-    transform-style: flat;
-    transition-duration: 0ms !important;
   }
 
   .hero-copy h1 {

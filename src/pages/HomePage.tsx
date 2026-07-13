@@ -1,6 +1,6 @@
 import Atropos from 'atropos/react'
 import { ArrowRight, ShieldCheck, Sparkles, Mail } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { Route } from '../app/routing'
 import { assetPath } from '../app/routing'
 import { PageLink } from '../components/PageLink'
@@ -12,8 +12,6 @@ import {
   professionalStackRows,
   professionalStats,
 } from '../data/siteContent'
-
-const MOBILE_HERO_QUERY = '(max-width: 720px)'
 
 export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) {
   return (
@@ -153,30 +151,7 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
   )
 }
 
-function useIsMobileHero() {
-  const [isMobileHero, setIsMobileHero] = useState(() =>
-    window.matchMedia(MOBILE_HERO_QUERY).matches,
-  )
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(MOBILE_HERO_QUERY)
-    const syncMobileHero = () => setIsMobileHero(mediaQuery.matches)
-
-    syncMobileHero()
-    mediaQuery.addEventListener('change', syncMobileHero)
-    return () => mediaQuery.removeEventListener('change', syncMobileHero)
-  }, [])
-
-  return isMobileHero
-}
-
 function HeroVisualShell({ children }: { children: ReactNode }) {
-  const isMobileHero = useIsMobileHero()
-
-  if (isMobileHero) {
-    return null
-  }
-
   return (
     <Atropos
       className="hero-tilt tilt-wrap"
