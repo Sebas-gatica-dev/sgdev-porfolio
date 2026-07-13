@@ -3855,6 +3855,9 @@ main {
     align-items: center;
     gap: 0.65rem;
     padding: 0.72rem max(0.75rem, env(safe-area-inset-right)) 0.72rem max(0.75rem, env(safe-area-inset-left));
+    background: var(--canvas);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .brand {
@@ -3894,9 +3897,10 @@ main {
     border: 1px solid var(--nav-border);
     border-radius: 8px;
     padding: 0.35rem;
-    background: var(--nav-bg);
+    background: var(--canvas);
     box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(18px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .mobile-tabbar a {
