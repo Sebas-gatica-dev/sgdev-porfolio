@@ -3842,7 +3842,8 @@ main {
 @media (max-width: 720px) {
   .app-shell {
     padding-bottom: calc(4.95rem + env(safe-area-inset-bottom));
-    background-size: 22px 22px;
+    background: linear-gradient(180deg, var(--canvas), var(--canvas-bottom));
+    background-size: auto;
   }
 
   :root[data-theme="dark"] body {
