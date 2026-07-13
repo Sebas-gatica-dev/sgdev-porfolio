@@ -49,24 +49,24 @@ export type DemoPlaybook = {
 }
 
 export const stack = [
-  'Java Spring',
-  'WebFlux / Reactor',
+  'Java / Spring Boot',
+  'Spring MVC / JPA',
+  'WebFlux / Reactor / R2DBC',
   'React / Next.js',
-  'AI agents',
-  'Prompt library',
-  'LLM tools',
-  'Workflow UX',
-  'GitHub / GitLab APIs',
-  'Vector DB',
-  'Docker',
-  'Cloud Run',
-  'Terraform-ready',
+  'TypeScript / Vite',
+  'Google ADK',
+  'Spring AI / RAG',
+  'PostgreSQL / pgvector',
+  'MySQL / MariaDB',
+  'Docker / Nginx',
+  'Linux VPS',
+  'AWS / Google Cloud',
 ]
 
 export const capabilityLayers: RuntimeLayer[] = [
   {
     title: 'Asistente IA',
-    detail: 'Chat y voz para explicar perfil, demos, stack y enfoque profesional.',
+    detail: 'Chat y voz para explicar perfil, experiencia, demos, stack y enfoque profesional desde datos del CV.',
     signal: 'Flujo Multiagente',
     icon: Bot,
   },
@@ -78,7 +78,7 @@ export const capabilityLayers: RuntimeLayer[] = [
   },
   {
     title: 'Integraciones',
-    detail: 'APIs, agenda, PDF, voz realtime y contexto dinamico conectados al backend.',
+    detail: 'APIs, agenda, PDF, voz realtime, datos persistidos y contexto dinámico conectados al backend.',
     signal: 'Tools reales',
     icon: Blocks,
   },
@@ -105,7 +105,7 @@ export const capabilityLayers: RuntimeLayer[] = [
 export const qualityGates: QualityGate[] = [
   {
     title: 'Requerimientos claros',
-    detail: 'Lo mas importante es detectar la necesidad o el problema, y buscar a traves del desarrollo y las posibilidades de la IA, soluciones que hagan de todo algo mas optimo.',
+    detail: 'Detectar la necesidad, entender el proceso y usar software e IA solo donde aporta una mejora medible.',
     metric: 'Demo-first UX',
     icon: Workflow,
   },
@@ -117,13 +117,13 @@ export const qualityGates: QualityGate[] = [
   },
   {
     title: 'Seguridad y control',
-    detail: 'Garantizo lo estandares de ciberseguridad indispensables para el entorno de producción.',
+    detail: 'Buenas prácticas de control, confirmaciones humanas, trazabilidad y criterios básicos de seguridad para producción.',
     metric: 'Human-in-loop',
     icon: ShieldCheck,
   },
   {
     title: 'Deploy cloud',
-    detail: 'Despliegue en VPS o servicio en la nube, integracion continua y despliegue automatizado.',
+    detail: 'Despliegue en VPS o servicio en la nube, integración continua y despliegue automatizado.',
     metric: 'Production-minded',
     icon: Cloud,
   },
@@ -132,10 +132,10 @@ export const qualityGates: QualityGate[] = [
 export const demoPlaybooks: Record<string, DemoPlaybook> = {
   chat: {
     agent: 'Portfolio assistant + especialista seleccionable',
-    workflow: 'Mensaje -> prompt del portfolio -> streaming response -> trace event',
+    workflow: 'Mensaje -> prompt CV-backed del portfolio -> streaming response -> trace event',
     tools: 'Dynamic context, extensions, Responses API, fallback local',
-    state: 'Session id, creditos por IP, contexto del turno',
-    evaluation: 'Respuesta accionable, ruta correcta, trazas comprensibles',
+    state: 'Session id, créditos por IP, contexto del turno',
+    evaluation: 'Respuesta accionable, experiencia laboral precisa, ruta correcta, trazas comprensibles',
   },
   appointments: {
     agent: 'Medical appointment workflow specialist',
@@ -158,34 +158,34 @@ export const productModules: ProductModule[] = [
     title: 'Repo-aware agent chat',
     subtitle: 'Chat con contexto de repositorio',
     summary:
-      'Un asistente que entiende un proyecto, explica arquitectura, detecta deuda tecnica y propone cambios con criterio de equipo.',
+      'Un asistente que entiende un proyecto, explica arquitectura, detecta deuda técnica y propone cambios con criterio Java/Spring, React y DevOps.',
     icon: Github,
-    points: ['Conectores GitHub/GitLab', 'RAG sobre codigo y docs', 'Streaming SSE', 'Sesion e historial'],
+    points: ['Conectores GitHub/GitLab', 'RAG sobre código y docs', 'Streaming SSE', 'Sesión e historial'],
   },
   {
     title: 'Workflow automation copilot',
     subtitle: 'Procesos, datos y aprobaciones',
     summary:
-      'Un flujo para clasificar solicitudes, consultar datos permitidos, proponer acciones y pedir aprobacion humana antes de ejecutar.',
+      'Un flujo para clasificar solicitudes, consultar datos permitidos, proponer acciones y pedir aprobación humana antes de ejecutar integraciones o cambios persistentes.',
     icon: Workflow,
-    points: ['Integraciones API', 'Reglas configurables', 'Historial auditable', 'Validacion humana'],
+    points: ['Integraciones API', 'Reglas configurables', 'Historial auditable', 'Validación humana'],
   },
   {
     title: 'LLM utility layer',
     subtitle: 'Modulos reutilizables',
     summary:
-      'Resumen, clasificacion, extraccion, reformulacion y asistencia contextual como piezas que se adaptan a cada cliente.',
+      'Resumen, clasificación, extracción, reformulación y asistencia contextual como piezas reutilizables para procesos internos.',
     icon: Blocks,
-    points: ['Prompts versionados', 'Tools por dominio', 'Guardrails', 'Metricas de uso'],
+    points: ['Prompts versionados', 'Tools por dominio', 'Guardrails', 'Métricas de uso'],
   },
 ]
 
 export const architectureNodes = [
   { title: 'Portfolio UI', detail: 'React, consola agente, casos de uso y captura comercial.', icon: Code2 },
   { title: 'Agent API', detail: 'Backend propio que orquesta sesiones, SSE y fallback local.', icon: Workflow },
-  { title: 'Coordinator', detail: 'Router de intenciones para repo, workflows, turnos y utilidades.', icon: Bot },
-  { title: 'Tool layer', detail: 'GitHub/GitLab, base vectorial, CRM y APIs del cliente.', icon: Mic2 },
-  { title: 'Human gate', detail: 'Feedback, revisiones, aprobacion y transparencia antes de ejecutar.', icon: ShieldCheck },
+  { title: 'Coordinator', detail: 'Router de intenciones para perfil CV, repo, workflows, turnos y utilidades.', icon: Bot },
+  { title: 'Tool layer', detail: 'APIs, agenda, base vectorial, CRM, documentos y servicios del cliente.', icon: Mic2 },
+  { title: 'Human gate', detail: 'Feedback, revisiones, aprobación y transparencia antes de ejecutar.', icon: ShieldCheck },
   { title: 'Cloud deploy', detail: 'Docker primero; Cloud Run/GitHub Actions/Terraform como camino natural.', icon: Cloud },
 ]
 
@@ -200,7 +200,7 @@ export const workModel: WorkStep[] = [
   },
   {
     title: '3. Integracion por hitos',
-    detail: 'Contrato por objetivos: modulo, integracion, demo, hardening y deploy. Las horas son referencia, no la unidad de valor.',
+    detail: 'Contrato por objetivos: módulo, integración, demo, hardening y deploy. Las horas son referencia, no la unidad de valor.',
   },
   {
     title: '4. Feedback semanal',
@@ -212,7 +212,7 @@ export const servicePacks = [
   {
     name: 'AI App Audit',
     time: '1 semana',
-    value: 'Mapa tecnico, riesgos, oportunidades LLM y backlog priorizado.',
+    value: 'Mapa técnico, riesgos, oportunidades LLM y backlog priorizado.',
   },
   {
     name: 'Agent MVP',

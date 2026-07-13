@@ -13,6 +13,8 @@ import dev.sg.portfolio.domain.AppointmentSlotSuggestion;
 import dev.sg.portfolio.domain.AvailabilitySearchRequest;
 import dev.sg.portfolio.domain.AvailabilitySearchResponse;
 import dev.sg.portfolio.domain.BookAppointmentRequest;
+import java.time.LocalDate;
+import java.time.Year;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -112,7 +114,7 @@ class AppointmentFreeChatServiceTest {
         assertThat(newTimeTurn.fallbackReply()).doesNotContain("Pasame tu nombre");
         assertThat(bookedTurn.action()).isEqualTo("book");
         assertThat(captor.getValue().patientName()).isEqualTo("Sebastian");
-        assertThat(captor.getValue().startAt()).isEqualTo("2026-07-09T10:00:00");
+        assertThat(captor.getValue().startAt()).isEqualTo(nextNaturalJulyNinthAt("10:00:00"));
     }
 
     @Test
@@ -233,5 +235,13 @@ class AppointmentFreeChatServiceTest {
                         true
                 )
         );
+    }
+
+    private String nextNaturalJulyNinthAt(String time) {
+        LocalDate candidate = LocalDate.of(Year.now().getValue(), 7, 9);
+        if (candidate.isBefore(LocalDate.now().minusDays(1))) {
+            candidate = candidate.plusYears(1);
+        }
+        return candidate + "T" + time;
     }
 }

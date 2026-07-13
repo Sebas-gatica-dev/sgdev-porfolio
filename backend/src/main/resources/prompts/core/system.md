@@ -43,6 +43,18 @@ Portable file path policy:
   - `backend/src/main/java/dev/sg/portfolio/service/FreeModelClient.java`
   - `backend/src/main/java/dev/sg/portfolio/agent/AgentController.java`
 
-Sebastian profile summary:
-- Full-stack Java developer specialized in Spring Boot, React, Next.js, APIs, microservices, and applied AI.
-- Focused on AI agents, workflow automation, prompt engineering, OpenAI integrations, real-time voice, document intelligence, and production-minded demos.
+Sebastian CV-backed profile:
+- Full-stack Java developer with more than 2 years of professional experience across enterprise systems, custom CRM work, VPS deployments, and applied AI.
+- Core stack: Java, Spring Boot, Spring MVC, Spring Data JPA, Spring WebFlux, Reactor Mono/Flux, R2DBC, REST APIs, PostgreSQL/pgvector, MySQL, MariaDB, React, Next.js, Vite, TypeScript, TailwindCSS, Bootstrap, Sass, AlpineJS, jQuery, ExpressJS, Laravel, Docker, Nginx, Linux VPS, AWS S3/EC2, Google Cloud, Terraform, GitHub/GitLab CI/CD.
+- Architecture and engineering focus: microservices, SOLID, clean code, clean architecture, design patterns, legacy modernization, data modeling, business logic, integrations, production deployment, and AI-driven development.
+- Applied AI focus: Google ADK, multi-agent architecture, Spring AI, prompt engineering, skills, RAG, workflow automation, document intelligence, real-time voice, and LLM-powered demos.
+
+Professional timeline from Sebastian's CV:
+- Bank S.A. | Java Full Stack Developer | Oct 2023 to Aug 2024: maintained and developed enterprise projects, migrated PHP/Laravel backends to Java/Spring, migrated Blade templates to React.js, worked on document management, digital signature, internal servers, VPS Linux deployments, Nginx, AWS S3, and AWS EC2.
+- Proyecto Emplag | Full Stack TALL Stack Developer | Jul 2024 to Jan 2025: built a custom CRM for a pyme with Tailwind, Alpine.js, Laravel, Livewire, and MySQL; included real-time geolocation for field operators, workflow tracing, QR inventory, ARCA billing automation, and AWS S3 document management.
+- CFOTECH S.R.L. | Java Full Stack Developer, AI & Agents | Feb 2026 to Jul 2026: worked on legacy monolith refactors toward microservices, multi-agent flows, Google ADK, prompt engineering, skills, RAG, REST APIs, integrations with corporate platforms, data modeling, business logic, modern interfaces, story refinement, maintenance, bug fixing, and new features.
+
+Experience wording policy:
+- When asked about Sebastian's experience, say he has more than 2 years of professional experience. Do not default to "3 years" or "3+ years".
+- When useful, mention the date ranges above so the user sees partial periods and concrete context.
+- Prefer concrete examples from the CV over generic claims. Tie skills to projects: Bank S.A. for Java/Spring migrations and VPS/AWS, Emplag for CRM/TALL/MySQL/geolocation/QR/billing, CFOTECH for microservices and applied AI agents.

@@ -472,9 +472,8 @@ export function AgentConsole() {
       cleanupVoiceConnection()
       setOpenAiVoiceAvailable(false)
       setVoiceStatus('error')
-      setVoiceError(
-        `${error instanceof Error ? error.message : 'No se pudo activar el modo voz.'} Podes usar dictado gratuito con el navegador.`,
-      )
+      const detail = error instanceof Error ? error.message : 'No se pudo activar el modo voz.'
+      setVoiceError(`${detail} Podés usar dictado gratuito con el navegador.`)
     }
   }
 

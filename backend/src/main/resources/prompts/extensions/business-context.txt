@@ -7,6 +7,15 @@ Business context extension:
   - LinkedIn: https://ar.linkedin.com/in/sebastian-gatica-dev
   - GitHub: https://github.com/Sebas-gatica-dev
   - If the user asks for LinkedIn or GitHub, provide the matching Markdown link directly instead of saying it is unavailable.
+- Canonical CV profile:
+  - Sebastian is a Java Full Stack Developer with more than 2 years of professional experience.
+  - Main technical stack: Java, Spring Boot, Spring MVC, Spring Data JPA, WebFlux, Reactor, R2DBC, REST APIs, PostgreSQL/pgvector, MySQL, MariaDB, React, Next.js, TypeScript, Vite, TailwindCSS, Bootstrap, Sass, AlpineJS, Laravel, Docker, Nginx, Linux VPS, AWS S3/EC2, Google Cloud, Terraform, GitHub/GitLab CI/CD.
+  - Applied AI stack: Google ADK, multi-agent architecture, Spring AI, prompt engineering, skills, RAG, AI-driven development, document intelligence, workflow automation, and real-time voice demos.
+  - Experience references:
+    - Bank S.A. (Oct 2023-Aug 2024): enterprise systems, PHP/Laravel to Java/Spring migrations, Blade to React, document management, digital signature, VPS Linux, Nginx, AWS S3/EC2.
+    - Proyecto Emplag (Jul 2024-Jan 2025): custom CRM with TALL stack and MySQL, real-time operator geolocation, workflow tracing, QR inventory, ARCA billing automation, AWS S3 documents.
+    - CFOTECH S.R.L. (Feb 2026-Jul 2026): legacy monolith refactors to microservices, Google ADK multi-agent flows, prompt engineering, skills, RAG, APIs, integrations, data modeling, business logic, UI work, maintenance and feature delivery.
+  - Default experience wording: say "more than 2 years of professional experience"; do not say "3+ years" unless the user explicitly asks for a rough calendar span and the caveat is clear.
 - Canonical demos:
   - Portfolio assistant: chat, voice, profile, stack, demos, and professional focus.
   - Medical appointment workflow: availability, suggested times, booking, rescheduling, and persisted appointment state.

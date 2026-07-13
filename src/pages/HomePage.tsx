@@ -23,8 +23,9 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
           </div>
           <h1>Java Full Stack + IA aplicada.</h1>
           <p className="hero-lead">
-            Soy Sebastian Gatica. Desarrollo soluciones a medida con Spring, React,
-            LLMs, voz realtime, APIs y flujos de negocio usables.
+            Soy Sebastian Gatica. Tengo más de 2 años de experiencia desarrollando
+            soluciones con Java/Spring, React/Next.js, APIs, microservicios y
+            flujos de IA aplicada con Google ADK.
           </p>
 
           <div className="hero-actions">
@@ -50,6 +51,7 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
           activeOffset={18}
           rotateXMax={4}
           rotateYMax={6}
+          rotateTouch={false}
           shadow={false}
           highlight={false}
           aria-label="Resumen del portfolio"
@@ -59,7 +61,7 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
               <img src={assetPath('favicon.svg')} alt="" />
               <div>
                 <strong>SG AI portfolio</strong>
-                <span>React, WebFlux, LLMs y workflows funcionales.</span>
+                <span>React, WebFlux, Google ADK y workflows funcionales.</span>
               </div>
             </div>
 
@@ -78,11 +80,11 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
               </div>
               <div className="metric" data-atropos-offset="2">
                 <strong>PDF</strong>
-                <span>Analisis, procesamiento de documentos</span>
+                <span>Análisis y procesamiento de documentos</span>
               </div>
             </div>
 
-            <div className="flow-lines" aria-label="Flujo tecnico" data-atropos-offset="4">
+            <div className="flow-lines" aria-label="Flujo técnico" data-atropos-offset="4">
               <span>React</span>
               <ArrowRight size={16} />
               <span>WebFlux</span>
@@ -124,12 +126,12 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
         <div className="skill-snapshot-copy">
           <div className="section-kicker">
             <ShieldCheck size={18} />
-            Criterio Tecnico
+            Criterio técnico
           </div>
-          <h2>El desarrollar flujos utiles, optimizar procesos.</h2>
+          <h2>Desarrollo flujos útiles para optimizar procesos.</h2>
           <p>
-            El portfolio prioriza interaccion real, datos vivos, fallback y acciones seguras
-            para que cada demo muestre criterios de producto, solo la punta del iceberg de funcionalidades que se pueden implementar para optimizar o imnovar.
+            El portfolio prioriza interacción real, datos vivos, fallback y acciones seguras
+            para que cada demo muestre criterios de producto. Es una muestra breve de las funcionalidades que se pueden implementar para optimizar o innovar.
           </p>
         </div>
 
@@ -146,10 +148,10 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
         </div>
       </section>
 
-      <section className="home-demos-cta" aria-label="Ver mas demos">
-        <span>Tambien podes probar las experiencias completas.</span>
+      <section className="home-demos-cta" aria-label="Ver más demos">
+        <span>También podés probar las experiencias completas.</span>
         <PageLink href="/demos" onNavigate={onNavigate}>
-          Conoce las demos
+          Conocé las demos
           <ArrowRight size={16} />
         </PageLink>
       </section>

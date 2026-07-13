@@ -3936,6 +3936,21 @@ main {
     padding: 1.25rem 0 1.75rem;
   }
 
+  .hero-tilt.atropos {
+    perspective: none;
+    touch-action: pan-y;
+    transform: none !important;
+  }
+
+  .hero-tilt .atropos-scale,
+  .hero-tilt .atropos-rotate,
+  .hero-tilt .atropos-inner,
+  .hero-tilt [data-atropos-offset] {
+    transform: none !important;
+    transform-style: flat;
+    transition-duration: 0ms !important;
+  }
+
   .hero-copy h1 {
     max-width: none;
     margin: 0.65rem 0;

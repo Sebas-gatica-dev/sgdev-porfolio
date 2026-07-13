@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Code2,
   Coffee,
+  Database,
   FileText,
   Mail,
   MessageSquareText,
@@ -16,9 +17,8 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Route } from '../app/routing'
-import { OpenClawIcon } from '../components/OpenClawIcon'
 
-type IconComponent = LucideIcon | typeof OpenClawIcon
+type IconComponent = LucideIcon
 
 export const primaryNavItems: Array<{ href: Route; label: string; icon: IconComponent }> = [
   { href: '/', label: 'Inicio', icon: Sparkles },
@@ -32,64 +32,64 @@ export const profileLinks = {
 }
 
 export const professionalProfile = [
-  'Cuento con 3 años de experiencia construyendo aplicaciones robustas y escalables en entornos empresariales y proyectos freelance.',
-  'Me especializo en el desarrollo backend con Java y Spring Boot, y en la creación de interfaces modernas y performantes con ReactJS y Next.js.',
-  'Además, diseño e implemento flujos multiagente con Google ADK para automatizar procesos y potenciar soluciones inteligentes sobre infraestructura de microservicios.',
+  'Cuento con más de 2 años de experiencia profesional construyendo aplicaciones empresariales, CRMs a medida, integraciones y despliegues sobre VPS Linux.',
+  'Mi base técnica combina Java, Spring Boot, Spring MVC, Spring Data JPA, WebFlux, Reactor, R2DBC, APIs REST, PostgreSQL/pgvector, MySQL y MariaDB.',
+  'También desarrollo interfaces con React, Next.js, TypeScript, Vite y TailwindCSS, y diseño flujos de IA aplicada con Google ADK, multiagentes, prompts, skills y RAG.',
 ]
 
 export const professionalCapabilities = [
   {
     title: 'Backend y frontend',
-    text: 'APIs, servicios Spring Boot, interfaces React y experiencias web orientadas a producto.',
+    text: 'APIs REST, microservicios Spring Boot, migraciones legacy y frontends React/Next.js orientados a producto.',
     icon: Braces,
   },
   {
     title: 'Agentes de IA',
-    text: 'Creación de agentes personalizados en OpenClaw, orquestación multi agente y funcionalidades a medida.',
+    text: 'Google ADK, Spring AI, prompts, skills, RAG y flujos multiagente para automatizar procesos reales.',
     icon: BrainCircuit,
   },
   {
     title: 'Infraestructura',
-    text: 'Administración de VPS, Nginx, Docker, bases de datos y despliegue de modelos LLM open source.',
+    text: 'VPS Linux, Nginx, Docker, bases de datos, AWS S3/EC2, Google Cloud y despliegues productivos.',
     icon: ServerCog,
   },
   {
     title: 'Integración continua',
-    text: 'Flujos CI/CD con Terraform, GitHub Actions y múltiples gestores de versión.',
+    text: 'GitHub/GitLab CI/CD, Terraform, control de versiones y entregas por hitos con feedback técnico.',
     icon: Workflow,
   },
 ]
 
 export const professionalStats = [
-  { value: '3+ años', label: 'Experiencia', icon: CalendarDays },
-  { value: 'Proyectos', label: 'Empresariales y freelance', icon: Briefcase },
+  { value: '+2 años', label: 'Experiencia profesional', icon: CalendarDays },
+  { value: '3 etapas', label: 'Bank, Emplag y CFOTECH', icon: Briefcase },
   { value: 'Enfoque', label: 'Calidad, escalabilidad e IA', icon: Target },
 ]
 
 export const professionalStackRows = [
   {
     title: 'Java + Spring Boot',
-    text: 'APIs RESTful, arquitectura por capas y microservicios listos para producción.',
+    text: 'Spring MVC, Data JPA, WebFlux, Reactor, R2DBC, APIs REST y microservicios listos para producción.',
     icon: Coffee,
-    tags: ['Java', 'Spring Boot'],
+    tags: ['Java', 'Spring Boot', 'WebFlux'],
   },
   {
     title: 'ReactJS + Next.js',
-    text: 'Interfaces modernas, componentes reutilizables y experiencias rápidas y optimizadas.',
+    text: 'Interfaces modernas con React, Next.js, TypeScript, Vite, TailwindCSS y componentes reutilizables.',
     icon: Code2,
-    tags: ['React', 'Next.js'],
+    tags: ['React', 'Next.js', 'TypeScript'],
   },
   {
     title: 'Multiagentes con Google ADK',
-    text: 'Diseño de flujos multiagente para automatizar tareas y resolver problemas complejos.',
+    text: 'Diseño de flujos multiagente, prompts, skills y RAG para automatizar procesos de negocio.',
     icon: BrainCircuit,
-    tags: ['ADK'],
+    tags: ['Google ADK', 'RAG', 'Spring AI'],
   },
   {
-    title: 'OpenClaw',
-    text: 'Creación y personalización de agentes con herramientas, memoria y orquestación a medida.',
-    icon: OpenClawIcon,
-    tags: ['OpenClaw'],
+    title: 'Infra y datos',
+    text: 'PostgreSQL/pgvector, MySQL, MariaDB, Docker, Nginx, VPS Linux, AWS S3/EC2 y Google Cloud.',
+    icon: Database,
+    tags: ['Docker', 'Nginx', 'AWS'],
   },
 ]
 
