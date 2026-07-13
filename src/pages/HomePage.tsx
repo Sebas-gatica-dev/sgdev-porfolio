@@ -157,11 +157,7 @@ function HeroVisualShell({ children }: { children: ReactNode }) {
   const isMobileHero = useIsMobileHero()
 
   if (isMobileHero) {
-    return (
-      <div className="hero-tilt tilt-wrap" aria-label="Resumen del portfolio">
-        {children}
-      </div>
-    )
+    return null
   }
 
   return (
