@@ -92,7 +92,7 @@ function App() {
             ))}
           </nav>
           <button
-            className="theme-toggle"
+            className="theme-toggle theme-toggle-hidden"
             type="button"
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}

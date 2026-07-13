@@ -3,12 +3,7 @@ export type Theme = 'light' | 'dark'
 const THEME_STORAGE_KEY = 'sg-portfolio-theme'
 
 export function getInitialTheme(): Theme {
-  const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
-  if (savedTheme === 'light' || savedTheme === 'dark') {
-    return savedTheme
-  }
-
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return 'light'
 }
 
 export function persistTheme(theme: Theme) {
