@@ -8,7 +8,7 @@ import {
   routePathFromLocation,
   withBasePath,
 } from './app/routing'
-import { getInitialTheme, persistTheme } from './app/theme'
+import { getInitialTheme, isMobileThemeLocked, persistTheme } from './app/theme'
 import { AboutPortfolioModal } from './components/AboutPortfolioModal'
 import { PageLink } from './components/PageLink'
 import { primaryNavItems, profileLinks } from './data/siteContent'
@@ -26,6 +26,19 @@ function App() {
   useEffect(() => {
     persistTheme(theme)
   }, [theme])
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 720px)')
+    const forceLightThemeOnMobile = () => {
+      if (isMobileThemeLocked()) {
+        setTheme('light')
+      }
+    }
+
+    forceLightThemeOnMobile()
+    mediaQuery.addEventListener('change', forceLightThemeOnMobile)
+    return () => mediaQuery.removeEventListener('change', forceLightThemeOnMobile)
+  }, [])
 
   useEffect(() => {
     const currentRoute = resolveRoute(window.location.pathname)
@@ -92,7 +105,7 @@ function App() {
             ))}
           </nav>
           <button
-            className="theme-toggle theme-toggle-hidden"
+            className="theme-toggle"
             type="button"
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
