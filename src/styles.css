@@ -3975,9 +3975,10 @@ main {
 .project-detail-copy h1 {
   margin: 0;
   color: var(--heading);
-  font-size: clamp(2.6rem, 6vw, 5.2rem);
+  font-size: clamp(2.6rem, 3.8vw, 4rem);
   line-height: 0.94;
   letter-spacing: -0.055em;
+  overflow-wrap: anywhere;
 }
 
 .project-detail-copy > p {
