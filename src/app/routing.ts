@@ -1,27 +1,39 @@
-export type Route =
+export type StaticRoute =
   | '/'
   | '/demos'
   | '/demos/chat'
   | '/demos/turnos'
   | '/demos/documentos'
   | '/demo'
+  | '/proyectos'
   | '/contacto'
+
+export type Route = StaticRoute | `/proyectos/${string}`
 
 export const APP_BASE_PATH = normalizeBasePath(import.meta.env.BASE_URL)
 
-export const routes: Route[] = [
+export const routes: StaticRoute[] = [
   '/',
   '/demos',
   '/demos/chat',
   '/demos/turnos',
   '/demos/documentos',
   '/demo',
+  '/proyectos',
   '/contacto',
 ]
 
 export function resolveRoute(pathname: string): Route {
   const routePath = routePathFromLocation(pathname)
-  return routes.includes(routePath as Route) ? (routePath as Route) : '/'
+  if (routes.includes(routePath as StaticRoute)) {
+    return routePath as StaticRoute
+  }
+
+  if (/^\/proyectos\/[a-z0-9][a-z0-9-]{1,118}[a-z0-9]$/.test(routePath)) {
+    return routePath as Route
+  }
+
+  return '/'
 }
 
 export function routePathFromLocation(pathname: string) {
@@ -85,12 +97,22 @@ export function getPageTitle(route: Route) {
   if (route === '/contacto') {
     return 'Contacto'
   }
+  if (route === '/proyectos') {
+    return 'Proyectos'
+  }
+  if (route.startsWith('/proyectos/')) {
+    return 'Proyecto'
+  }
   return 'Inicio'
 }
 
 export function isPrimaryRouteActive(itemPath: Route, currentRoute: Route) {
   if (itemPath === '/demos') {
     return currentRoute === '/demos' || currentRoute.startsWith('/demos') || currentRoute === '/demo'
+  }
+
+  if (itemPath === '/proyectos') {
+    return currentRoute === '/proyectos' || currentRoute.startsWith('/proyectos/')
   }
 
   return currentRoute === itemPath

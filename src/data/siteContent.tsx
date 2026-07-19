@@ -7,6 +7,7 @@ import {
   Coffee,
   Database,
   FileText,
+  FolderKanban,
   Mail,
   MessageSquareText,
   ServerCog,
@@ -23,6 +24,7 @@ type IconComponent = LucideIcon
 export const primaryNavItems: Array<{ href: Route; label: string; icon: IconComponent }> = [
   { href: '/', label: 'Inicio', icon: Sparkles },
   { href: '/demos', label: 'Demos', icon: MessageSquareText },
+  { href: '/proyectos', label: 'Proyectos', icon: FolderKanban },
   { href: '/contacto', label: 'Contacto', icon: Mail },
 ]
 

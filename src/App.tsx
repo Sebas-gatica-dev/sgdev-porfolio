@@ -16,6 +16,8 @@ import { ContactPage } from './pages/ContactPage'
 import { AgentChatDemoPage, DocumentDemoPage, MedicalAppointmentDemoPage } from './pages/DemoDetailPages'
 import { DemosPage } from './pages/DemosPage'
 import { HomePage } from './pages/HomePage'
+import { ProjectDetailPage } from './pages/ProjectDetailPage'
+import { ProjectsPage } from './pages/ProjectsPage'
 
 function App() {
   const [route, setRoute] = useState<Route>(() => resolveRoute(window.location.pathname))
@@ -138,6 +140,10 @@ function App() {
         )}
         {route === '/demos/turnos' && <MedicalAppointmentDemoPage onNavigate={navigate} />}
         {route === '/demos/documentos' && <DocumentDemoPage onNavigate={navigate} />}
+        {route === '/proyectos' && <ProjectsPage onNavigate={navigate} />}
+        {route.startsWith('/proyectos/') && (
+          <ProjectDetailPage slug={route.replace('/proyectos/', '')} onNavigate={navigate} />
+        )}
         {route === '/contacto' && <ContactPage />}
       </main>
 
@@ -154,6 +160,10 @@ function App() {
           <PageLink href="/demos" onNavigate={navigate}>
             <Sparkles size={18} />
             Demos
+          </PageLink>
+          <PageLink href="/proyectos" onNavigate={navigate}>
+            <Sparkles size={18} />
+            Proyectos
           </PageLink>
           <PageLink href="/contacto" onNavigate={navigate}>
             <Mail size={18} />
