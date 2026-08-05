@@ -54,6 +54,7 @@ export const stack = [
   'WebFlux / Reactor / R2DBC',
   'React / Next.js',
   'TypeScript / Vite',
+  'Python / Flask',
   'Google ADK',
   'Spring AI / RAG',
   'PostgreSQL / pgvector',

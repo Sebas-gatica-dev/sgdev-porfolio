@@ -24,11 +24,11 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
             <Sparkles size={18} />
             Sebastian Gatica
           </div>
-          <h1>Java Full Stack + IA aplicada.</h1>
+          <h1>Full Stack Java con IA aplicada.</h1>
           <p className="hero-lead">
             Soy Sebastian Gatica. Tengo más de 2 años de experiencia desarrollando
-            soluciones con Java/Spring, React/Next.js, APIs, microservicios y
-            flujos de IA aplicada con Google ADK.
+            soluciones con Java/Spring y React/Next.js, PHP/Laravel(Stack TALL), Python/Flask y flujos multiagente con IA. Me especializo
+            en integraciones, agentes y prototipos de IA.
           </p>
 
           <div className="hero-actions">
@@ -55,7 +55,7 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
               <img src={assetPath('favicon.svg')} alt="" />
               <div>
                 <strong>SG AI portfolio</strong>
-                <span>React, WebFlux, Google ADK y workflows funcionales.</span>
+                <span>React, WebFlux, Google ADK y workflows de IA.</span>
               </div>
             </div>
 

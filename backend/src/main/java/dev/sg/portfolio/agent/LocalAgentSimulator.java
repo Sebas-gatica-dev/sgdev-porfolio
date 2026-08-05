@@ -34,7 +34,18 @@ public class LocalAgentSimulator {
             "trabajo",
             "trabajos",
             "proyecto",
-            "proyectos"
+            "proyectos",
+            "python",
+            "java",
+            "typescript",
+            "javascript",
+            "react",
+            "nextjs",
+            "spring",
+            "spring boot",
+            "inteligencia artificial",
+            "agente",
+            "agentes"
     );
 
     private static final List<String> EXPLICIT_PROFILE_REQUESTS = List.of(
@@ -164,14 +175,15 @@ public class LocalAgentSimulator {
     private String cvBackedProfileSummary() {
         return "### Resumen general\n"
                 + "- Sebastian Gatica es Java Full Stack Developer con más de 2 años de experiencia profesional.\n"
-                + "- Su foco combina backend Java/Spring, frontend React/Next.js, microservicios, integraciones, bases de datos y soluciones con IA aplicada.\n\n"
+                + "- Su foco combina backend Java/Spring, frontend React/Next.js, microservicios, integraciones, bases de datos y soluciones con IA aplicada.\n"
+                + "- Su experiencia con Python es desarrolo de Flask API, integraciones para consumo de LLMs, .\n\n"
                 + "### Experiencia destacada\n"
                 + "- **Bank S.A.** | Java Full Stack Developer | Oct 2023 - Aug 2024: migraciones de PHP/Laravel a Java/Spring, Blade a React, gestión documental, firma digital, VPS Linux, Nginx y AWS S3/EC2.\n"
                 + "- **Proyecto Emplag** | Full Stack TALL Stack Developer | Jul 2024 - Jan 2025: CRM a medida con MySQL, geolocalización en tiempo real, trazabilidad de procesos, inventario QR, facturación ARCA y documentos en AWS S3.\n"
                 + "- **CFOTECH S.R.L.** | Java Full Stack Developer, AI & Agents | Feb 2026 - Jul 2026: refactors de monolitos a microservicios, Google ADK, flujos multiagente, prompt engineering, skills, RAG, APIs e integraciones.\n\n"
                 + "### Tecnologías y enfoques recurrentes\n"
                 + "- Java, Spring Boot, Spring MVC, Spring Data JPA, WebFlux, Reactor, R2DBC y PostgreSQL/pgvector.\n"
-                + "- React, Next.js, TypeScript, Vite, TailwindCSS, Laravel, Docker, Nginx, Linux VPS, AWS, Google Cloud, Terraform y CI/CD.";
+                + "- React, Next.js, TypeScript, Python/Flask, Vite, TailwindCSS, Laravel, Docker, Nginx, Linux VPS, AWS, Google Cloud, Terraform y CI/CD.";
     }
 
     private String normalizeForIntent(String input) {

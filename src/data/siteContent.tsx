@@ -36,18 +36,18 @@ export const profileLinks = {
 export const professionalProfile = [
   'Cuento con más de 2 años de experiencia profesional construyendo aplicaciones empresariales, CRMs a medida, integraciones y despliegues sobre VPS Linux.',
   'Mi base técnica combina Java, Spring Boot, Spring MVC, Spring Data JPA, WebFlux, Reactor, R2DBC, APIs REST, PostgreSQL/pgvector, MySQL y MariaDB.',
-  'También desarrollo interfaces con React, Next.js, TypeScript, Vite y TailwindCSS, y diseño flujos de IA aplicada con Google ADK, multiagentes, prompts, skills y RAG.',
+  'También desarrollo interfaces con React, Next.js y TypeScript. Con Python trabajé de forma puntual y en prototipos de IA, incluido una Flask API que interactuaba con bases de datos relacionales.',
 ]
 
 export const professionalCapabilities = [
   {
     title: 'Backend y frontend',
-    text: 'APIs REST, microservicios Spring Boot, migraciones legacy y frontends React/Next.js orientados a producto.',
+    text: 'APIs REST, microservicios Spring Boot, migraciones de sistemas e integraciones y frontends React/Next.js orientados a producto.',
     icon: Braces,
   },
   {
     title: 'Agentes de IA',
-    text: 'Google ADK, Spring AI, prompts, skills, RAG y flujos multiagente para automatizar procesos reales.',
+    text: 'Python/TypeScript, Google ADK, Spring AI, prompts, skills, RAG y flujos multiagente para automatizar procesos reales.',
     icon: BrainCircuit,
   },
   {
@@ -82,10 +82,10 @@ export const professionalStackRows = [
     tags: ['React', 'Next.js', 'TypeScript'],
   },
   {
-    title: 'Multiagentes con Google ADK',
-    text: 'Diseño de flujos multiagente, prompts, skills y RAG para automatizar procesos de negocio.',
+    title: 'Python + IA aplicada',
+    text: 'Uso puntual de Python en integraciones y prototipos, junto con Google ADK, agentes, prompts y RAG.',
     icon: BrainCircuit,
-    tags: ['Google ADK', 'RAG', 'Spring AI'],
+    tags: ['Python', 'TensorFlow', 'Google ADK'],
   },
   {
     title: 'Infra y datos',

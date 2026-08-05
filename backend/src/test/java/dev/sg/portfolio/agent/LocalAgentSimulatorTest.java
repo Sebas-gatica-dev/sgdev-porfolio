@@ -19,6 +19,9 @@ class LocalAgentSimulatorTest {
         assertThat(simulator.shouldUseCvBackedProfileFallback(
                 "Tenes el CV actualizado?"
         )).isTrue();
+        assertThat(simulator.shouldUseCvBackedProfileFallback(
+                "Sebastian posee experiencia utilizando Python?"
+        )).isTrue();
     }
 
     @Test
@@ -45,6 +48,8 @@ class LocalAgentSimulatorTest {
                 .contains("Modo demo local")
                 .contains("Sebastian Gatica")
                 .contains("más de 2 años")
+                .contains("Python")
+                .contains("Flask")
                 .doesNotContain("Input recibido");
     }
 
