@@ -63,6 +63,8 @@ public class AppointmentFreeChatService {
     );
 
     private final AppointmentDemoService appointmentDemoService;
+    private final Map<String, String> requestedTypes = new ConcurrentHashMap<>();
+    private final Map<String, String> conversationTypes = new ConcurrentHashMap<>();
     private final Map<String, PendingAppointment> pendingAppointments = new ConcurrentHashMap<>();
     private final Map<String, CompletedAppointment> completedAppointments = new ConcurrentHashMap<>();
     private final Map<String, List<AppointmentSlotSuggestion>> offeredSlots = new ConcurrentHashMap<>();
@@ -83,12 +85,19 @@ public class AppointmentFreeChatService {
             offeredSlots.remove(entry.getKey());
             return true;
         });
-        lastSeen.put(sessionId, now);
-        String consultationType = selectConsultationType(request == null ? null : request.consultationType(), message);
+        requestedTypes.keySet().removeIf(id -> lastSeen.keySet().stream().noneMatch(key -> key.startsWith(id + "|")));
+        conversationTypes.keySet().retainAll(requestedTypes.keySet());
+        String requestedType = selectConsultationType(request == null ? null : request.consultationType(), "");
+        String previousRequest = requestedTypes.put(sessionId, requestedType);
+        String baseType = requestedType.equals(previousRequest) ? conversationTypes.getOrDefault(sessionId, requestedType) : requestedType;
+        String consultationType = selectConsultationType(baseType, message);
+        conversationTypes.put(sessionId, consultationType);
+        String stateKey = sessionId + "|" + consultationType;
+        lastSeen.put(stateKey, now);
         try {
             ParsedAppointmentMessage parsed = parseMessage(message);
             ToolRun toolRun = runTool(sessionId, consultationType, parsed, message);
-            PendingAppointment pending = pendingAppointments.get(sessionId);
+            PendingAppointment pending = pendingAppointments.get(stateKey);
             String fallbackReply = fallbackReply(consultationType, toolRun, parsed, pending);
             return new AppointmentFreeTurn(
                     toolRun.action(),
@@ -111,7 +120,7 @@ public class AppointmentFreeChatService {
                             consultationType,
                             new ToolRun("error", error.getMessage(), null, null, true),
                             parseMessage(""),
-                            pendingAppointments.get(sessionId),
+                            pendingAppointments.get(stateKey),
                             fallbackReply
                     ),
                     fallbackReply,
@@ -136,14 +145,27 @@ public class AppointmentFreeChatService {
             );
         }
 
-        CompletedAppointment completed = completedAppointments.get(sessionId);
-        if (completed == null && appointmentDemoService != null) {
-            var saved = appointmentDemoService.activeAppointment(sessionId);
+        String stateKey = sessionId + "|" + consultationType;
+        PendingAppointment currentPending = pendingAppointments.get(stateKey);
+        boolean newBooking = normalize(message).matches(".*\\b(?:(?:otro|otra|nuevo|nueva|segundo|segunda|tercer|tercero)\\s+(?:turno|cita|reserva)|(?:turno|cita|reserva)\\s+(?:mas|nuevo|nueva|adicional)|(?:quiero|necesito)\\s+(?:reservar\\s+|agendar\\s+|sacar\\s+)?(?:un|una)\\s+(?:turno|cita|reserva))\\b.*")
+                && !isNameCorrection(message) && !parsed.rescheduleIntent();
+        CompletedAppointment completed = completedAppointments.get(stateKey);
+        if (completed == null && appointmentDemoService != null && (currentPending == null || currentPending.reschedule())) {
+            var saved = appointmentDemoService.activeAppointment(sessionId, consultationType);
             if (saved != null) {
                 completed = new CompletedAppointment(saved.patientName(), saved.doctorName(),
                         LocalDateTime.parse(saved.startAt()), false);
-                completedAppointments.put(sessionId, completed);
+                completedAppointments.put(stateKey, completed);
             }
+        }
+        if (newBooking) {
+            String previousName = currentPending != null ? currentPending.patientName() : completed == null ? "" : completed.patientName();
+            pendingAppointments.put(stateKey, new PendingAppointment(consultationType, null, null, previousName, false));
+            completedAppointments.remove(stateKey);
+            offeredSlots.remove(stateKey);
+            completed = null;
+        } else if (currentPending != null && !currentPending.reschedule()) {
+            completed = null;
         }
         if (completed != null
                 && parsed.gratitudeIntent()
@@ -167,9 +189,9 @@ public class AppointmentFreeChatService {
         }
 
         if (parsed.farewellIntent()) {
-            pendingAppointments.remove(sessionId);
-            completedAppointments.remove(sessionId);
-            offeredSlots.remove(sessionId);
+            pendingAppointments.remove(stateKey);
+            completedAppointments.remove(stateKey);
+            offeredSlots.remove(stateKey);
             return new ToolRun(
                     "end_call",
                     "Gracias por probar la demo. Cierro la llamada.",
@@ -179,7 +201,7 @@ public class AppointmentFreeChatService {
             );
         }
 
-        PendingAppointment pending = pendingAppointments.get(sessionId);
+        PendingAppointment pending = pendingAppointments.get(stateKey);
         if (pending == null && completed != null) {
             pending = new PendingAppointment(consultationType, completed.startAt().toLocalDate(),
                     completed.startAt().toLocalTime(), completed.patientName(), true);
@@ -187,7 +209,7 @@ public class AppointmentFreeChatService {
         String effectiveConsultationType = pending == null ? consultationType : pending.consultationType();
         LocalDate date = parsed.date() == null && pending != null ? pending.date() : parsed.date();
         LocalTime time = parsed.time() == null && pending != null ? pending.time() : parsed.time();
-        List<AppointmentSlotSuggestion> offered = offeredSlots.getOrDefault(sessionId, List.of());
+        List<AppointmentSlotSuggestion> offered = offeredSlots.getOrDefault(stateKey, List.of());
         String normalizedMessage = normalize(message);
         int choice = normalizedMessage.matches(".*\\b(?:primer[oa]?|1ra?|uno)\\b.*") ? 0
                 : normalizedMessage.matches(".*\\b(?:segund[oa]|2da?|dos)\\b.*") ? 1
@@ -225,14 +247,14 @@ public class AppointmentFreeChatService {
         }
 
         // Always retain partial data, even when availability cannot find an exact slot.
-        pendingAppointments.put(sessionId, new PendingAppointment(effectiveConsultationType, date, time, patientName, reschedule));
+        pendingAppointments.put(stateKey, new PendingAppointment(effectiveConsultationType, date, time, patientName, reschedule));
 
         if (completed != null && StringUtils.hasText(parsed.patientName()) && !patientName.equals(completed.patientName())
                 && parsed.date() == null && parsed.time() == null) {
-            AppointmentMutationResponse mutation = appointmentDemoService.rename(sessionId, patientName);
-            completedAppointments.put(sessionId, CompletedAppointment.from(mutation, false));
+            AppointmentMutationResponse mutation = appointmentDemoService.rename(sessionId, patientName, effectiveConsultationType);
+            completedAppointments.put(stateKey, CompletedAppointment.from(mutation, false));
             // A name correction must not discard a time/date change still awaiting confirmation.
-            pendingAppointments.put(sessionId, new PendingAppointment(effectiveConsultationType, date, time, patientName, true));
+            pendingAppointments.put(stateKey, new PendingAppointment(effectiveConsultationType, date, time, patientName, true));
             return new ToolRun("update_name", "Nombre corregido. " + formatAppointment(mutation), null, mutation, true);
         }
 
@@ -245,7 +267,7 @@ public class AppointmentFreeChatService {
                 && !parsed.bookingIntent()
                 && !parsed.rescheduleIntent()) {
             pendingAppointments.put(
-                    sessionId,
+                    stateKey,
                     new PendingAppointment(effectiveConsultationType, null, null, patientName, reschedule)
             );
             return new ToolRun(
@@ -259,7 +281,7 @@ public class AppointmentFreeChatService {
 
         if (date != null && time == null && !parsed.hasTimeWindow()) {
             pendingAppointments.put(
-                    sessionId,
+                    stateKey,
                     new PendingAppointment(effectiveConsultationType, date, null, patientName, reschedule)
             );
             return new ToolRun(
@@ -273,7 +295,7 @@ public class AppointmentFreeChatService {
 
         if (date == null && time != null) {
             pendingAppointments.put(
-                    sessionId,
+                    stateKey,
                     new PendingAppointment(effectiveConsultationType, null, time, patientName, reschedule)
             );
             return new ToolRun(
@@ -300,7 +322,7 @@ public class AppointmentFreeChatService {
                     effectiveParsed
             );
             if (!"AVAILABLE".equals(availability.requestedSlotStatus())) {
-                pendingAppointments.put(sessionId, new PendingAppointment(effectiveConsultationType, date, time, patientName, reschedule));
+                pendingAppointments.put(stateKey, new PendingAppointment(effectiveConsultationType, date, time, patientName, reschedule));
                 return new ToolRun(
                         "availability",
                         availabilityDetail(availability, effectiveParsed),
@@ -317,7 +339,7 @@ public class AppointmentFreeChatService {
                         new RescheduleAppointmentRequest(
                                 sessionId,
                                 LocalDateTime.of(date, time).format(DATE_TIME_FORMATTER)
-                        )
+                        ), effectiveConsultationType
                 );
                 action = "reschedule";
             } else {
@@ -331,9 +353,9 @@ public class AppointmentFreeChatService {
                 );
                 action = "book";
             }
-            pendingAppointments.remove(sessionId);
+            pendingAppointments.remove(stateKey);
             completedAppointments.put(
-                    sessionId,
+                    stateKey,
                     CompletedAppointment.from(mutation, reschedule)
             );
             return new ToolRun(
@@ -348,7 +370,7 @@ public class AppointmentFreeChatService {
 
         if (pending != null && exactSlot && !StringUtils.hasText(patientName) && confirmationForPending) {
             pendingAppointments.put(
-                    sessionId,
+                    stateKey,
                     new PendingAppointment(effectiveConsultationType, date, time, "", reschedule)
             );
             return new ToolRun(
@@ -364,7 +386,7 @@ public class AppointmentFreeChatService {
         if (pending != null && exactSlot && StringUtils.hasText(patientName)
                 && parsed.date() == null && parsed.time() == null) {
             pendingAppointments.put(
-                    sessionId,
+                    stateKey,
                     new PendingAppointment(effectiveConsultationType, date, time, patientName, reschedule)
             );
             return new ToolRun(
@@ -393,7 +415,7 @@ public class AppointmentFreeChatService {
         )
                 : null;
         if (availability != null) {
-            offeredSlots.put(sessionId, availability.availableSlots().stream().limit(3).toList());
+            offeredSlots.put(stateKey, availability.availableSlots().stream().limit(3).toList());
         }
 
         if (reschedule && parsed.rescheduleIntent() && exactSlot && availability != null
@@ -402,11 +424,11 @@ public class AppointmentFreeChatService {
                     new RescheduleAppointmentRequest(
                             sessionId,
                             LocalDateTime.of(date, time).format(DATE_TIME_FORMATTER)
-                    )
+                    ), effectiveConsultationType
             );
-            pendingAppointments.remove(sessionId);
+            pendingAppointments.remove(stateKey);
             completedAppointments.put(
-                    sessionId,
+                    stateKey,
                     CompletedAppointment.from(mutation, true)
             );
             return new ToolRun(
@@ -428,9 +450,9 @@ public class AppointmentFreeChatService {
                             LocalDateTime.of(date, time).format(DATE_TIME_FORMATTER)
                     )
             );
-            pendingAppointments.remove(sessionId);
+            pendingAppointments.remove(stateKey);
             completedAppointments.put(
-                    sessionId,
+                    stateKey,
                     CompletedAppointment.from(mutation, false)
             );
             return new ToolRun(
@@ -444,7 +466,7 @@ public class AppointmentFreeChatService {
 
         if (exactSlot && availability != null && "AVAILABLE".equals(availability.requestedSlotStatus())) {
             pendingAppointments.put(
-                    sessionId,
+                    stateKey,
                     new PendingAppointment(
                             consultationType,
                             date,
@@ -455,7 +477,7 @@ public class AppointmentFreeChatService {
             );
         } else if (exactSlot && availability != null) {
             pendingAppointments.put(
-                    sessionId,
+                    stateKey,
                     new PendingAppointment(
                             consultationType,
                             date,
@@ -940,6 +962,8 @@ public class AppointmentFreeChatService {
             boolean understood = parsed.date() != null || parsed.time() != null || parsed.hasTimeWindow()
                     || StringUtils.hasText(parsed.patientName()) || parsed.confirmationIntent()
                     || parsed.farewellIntent() || parsed.gratitudeIntent()
+                    || parsed.bookingIntent() || parsed.rescheduleIntent() || parsed.availabilityIntent()
+                    || containsAny(normalize(message), "turno", "cita", "mendez", "ibarra", "varela", "cardio", "control", "traumato")
                     || (message.trim().split("\\s+").length <= 2 && validPatientName(cleanPatientName(message)))
                     || containsAny(normalize(message), "primer", "segund", "tercer");
             return understood;
@@ -950,7 +974,8 @@ public class AppointmentFreeChatService {
             String instructions = "Extrae datos del ULTIMO mensaje para turnos. Responde SOLO JSON con patientName, date (YYYY-MM-DD), time (HH:mm), todos strings vacios si no aparecen. No inventes ni confirmes reservas. Hoy es "
                     + LocalDate.now(java.time.ZoneId.of("America/Argentina/Buenos_Aires"))
                     + ". Si corrige un dato devuelve el dato nuevo. Nunca copies datos del estado como si fueran nuevos. Estado: "
-                    + pendingStateSummary(pendingAppointments.get(normalizeSessionId(request.sessionId())));
+                    + pendingStateSummary(pendingAppointments.get(normalizeSessionId(request.sessionId()) + "|"
+                            + conversationTypes.getOrDefault(normalizeSessionId(request.sessionId()), selectConsultationType(request.consultationType(), request.message()))));
             return model.streamText(request.message(), instructions, "").reduce("", String::concat)
                     .timeout(Duration.ofSeconds(15))
                     .map(reply -> {
@@ -1060,19 +1085,12 @@ public class AppointmentFreeChatService {
     }
 
     private String selectConsultationType(String requestedType, String message) {
-        String requested = normalize(requestedType);
-        if ("traumatology".equals(requested) || "follow-up".equals(requested) || "cardiology".equals(requested)) {
-            return requested;
-        }
-
         String normalized = normalize(message);
-        if (containsAny(normalized, "cardio", "corazon")) {
-            return "cardiology";
-        }
-        if (containsAny(normalized, "control", "seguimiento")) {
-            return "follow-up";
-        }
-        return "traumatology";
+        if (containsAny(normalized, "cardio", "corazon", "con tomas", "ibarra")) return "cardiology";
+        if (containsAny(normalized, "control", "seguimiento", "con paula", "mendez")) return "follow-up";
+        if (containsAny(normalized, "traumato", "con hernan", "varela")) return "traumatology";
+        String requested = normalize(requestedType);
+        return "follow-up".equals(requested) || "cardiology".equals(requested) ? requested : "traumatology";
     }
 
     private String availabilityDetail(AvailabilitySearchResponse availability, ParsedAppointmentMessage parsed) {

@@ -145,6 +145,8 @@ export function MedicalAppointmentDemo() {
       consultationOptions[0],
     [selectedConsultationId],
   )
+  const selectedConsultationRef = useRef(selectedConsultation)
+  selectedConsultationRef.current = selectedConsultation
   const callActive = ['ringing', 'connecting', 'live'].includes(status)
   const browserSpeechAvailable = browserSpeechSupported()
 
@@ -471,7 +473,7 @@ export function MedicalAppointmentDemo() {
         {
           message: prompt,
           sessionId: sessionIdRef.current,
-          consultationType: selectedConsultation.id,
+          consultationType: selectedConsultationRef.current.id,
         },
         {
           onTool: handleFreeAppointmentTool,
@@ -781,7 +783,7 @@ export function MedicalAppointmentDemo() {
       if (item.name === 'find_available_appointments') {
         output = await findAvailableAppointments({
           sessionId: sessionIdRef.current,
-          consultationType: selectedConsultation.id,
+          consultationType: selectedConsultationRef.current.id,
           dateFrom: stringArg(args.date_from),
           dateTo: stringArg(args.date_to),
           preferredTimeFrom: optionalStringArg(args.preferred_time_from),
@@ -791,7 +793,7 @@ export function MedicalAppointmentDemo() {
       } else if (item.name === 'book_appointment') {
         output = await bookAppointment({
           sessionId: sessionIdRef.current,
-          consultationType: selectedConsultation.id,
+          consultationType: selectedConsultationRef.current.id,
           patientName: stringArg(args.patient_name),
           startAt: stringArg(args.start_at),
         })

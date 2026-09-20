@@ -21,6 +21,59 @@ class AppointmentConversationTest {
         return chat.prepare(new AppointmentChatRequest(message, "conversation", "traumatology"));
     }
 
+    private AppointmentFreeChatService.AppointmentFreeTurn sayTo(String type, String message) {
+        return chat.prepare(new AppointmentChatRequest(message, "conversation", type));
+    }
+
+    @Test void createsAnotherReservationWithoutMovingFirst() {
+        say("soy Ana, reserva el " + date + " a las 10");
+        say("quiero otro turno");
+        say("el " + date + " a las 12");
+        assertThat(say("guardar").action()).isEqualTo("book");
+        assertThat(db.queryForList("SELECT start_at FROM appointment_bookings WHERE demo_session_id = 'conversation' ORDER BY start_at", java.sql.Timestamp.class))
+                .extracting(t -> t.toLocalDateTime().toLocalTime().toString()).containsExactly("10:00", "12:00");
+        say("quiero un turno el " + date + " a las 12:30");
+        say("guardar");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM appointment_bookings WHERE demo_session_id = 'conversation'", Integer.class)).isEqualTo(3);
+    }
+
+    @Test void selectionCreatesBookingsForAllThreeDoctorsAndEditsOnlySelectedDoctor() {
+        for (String type : new String[]{"traumatology", "follow-up", "cardiology"}) {
+            assertThat(sayTo(type, "soy Ana, reserva el " + date + " a las 10").action()).isEqualTo("book");
+        }
+        assertThat(db.queryForList("SELECT doctor_id FROM appointment_bookings WHERE demo_session_id = 'conversation'", String.class))
+                .containsExactlyInAnyOrder("trauma", "control", "cardio");
+        assertThat(sayTo("follow-up", "cambiar a las 12:30").action()).isEqualTo("reschedule");
+        assertThat(sayTo("follow-up", "mi nombre es Lucia").action()).isEqualTo("update_name");
+        assertThat(db.queryForObject("SELECT patient_name FROM appointment_bookings WHERE demo_session_id = 'conversation' AND doctor_id = 'control'", String.class)).isEqualTo("Lucia");
+        assertThat(db.queryForList("SELECT start_at FROM appointment_bookings WHERE demo_session_id = 'conversation' AND doctor_id <> 'control'", java.sql.Timestamp.class))
+                .allSatisfy(t -> assertThat(t.toLocalDateTime().getHour()).isEqualTo(10));
+    }
+
+    @Test void spokenDoctorOverridesUiAndPersistsAcrossConfirmation() {
+        say("quiero un turno con Paula Mendez");
+        say("soy Ana el " + date + " a las 10");
+        assertThat(say("guardar").action()).isEqualTo("book");
+        assertThat(db.queryForObject("SELECT doctor_id FROM appointment_bookings WHERE demo_session_id = 'conversation'", String.class)).isEqualTo("control");
+        say("quiero otro turno con Tomas Ibarra");
+        say("soy Ana el " + date + " a las 10");
+        assertThat(say("guardar").action()).isEqualTo("book");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM appointment_bookings WHERE demo_session_id = 'conversation'", Integer.class)).isEqualTo(2);
+    }
+
+    @Test void patientNamedPaulaDoesNotChangeProfessional() {
+        say("soy Paula, reserva el " + date + " a las 10");
+        assertThat(db.queryForObject("SELECT doctor_id FROM appointment_bookings WHERE demo_session_id = 'conversation'", String.class)).isEqualTo("trauma");
+    }
+
+    @Test void preservesPartialDetailsSeparatelyWhenChangingSelection() {
+        sayTo("traumatology", "soy Ana el " + date + " a las 10");
+        sayTo("follow-up", "soy Pedro el " + date + " a las 12:30");
+        assertThat(sayTo("follow-up", "guardar").action()).isEqualTo("book");
+        assertThat(sayTo("traumatology", "guardar").action()).isEqualTo("book");
+        assertThat(db.queryForObject("SELECT patient_name FROM appointment_bookings WHERE demo_session_id = 'conversation' AND doctor_id = 'trauma'", String.class)).isEqualTo("Ana");
+    }
+
     @Test void retainsBareNameThroughAvailabilityAndCorrections() {
         say("Hola");
         assertThat(say("Sebastian").fallbackReply()).contains("Sebastian");

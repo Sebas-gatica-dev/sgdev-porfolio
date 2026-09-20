@@ -217,9 +217,13 @@ public class AppointmentDemoService {
     }
 
     public AppointmentMutationResponse reschedule(RescheduleAppointmentRequest request) {
+        return reschedule(request, null);
+    }
+
+    public AppointmentMutationResponse reschedule(RescheduleAppointmentRequest request, String consultationType) {
         ensureSchema();
         String sessionId = normalizeSessionId(request.sessionId());
-        ExistingAppointment existing = currentAppointment(sessionId);
+        ExistingAppointment existing = currentAppointment(sessionId, consultationType);
         if (existing == null) {
             throw new IllegalArgumentException("Todavia no hay un turno activo para reprogramar en esta llamada.");
         }
@@ -253,8 +257,12 @@ public class AppointmentDemoService {
     }
 
     public AppointmentMutationResponse rename(String sessionId, String patientName) {
+        return rename(sessionId, patientName, null);
+    }
+
+    public AppointmentMutationResponse rename(String sessionId, String patientName, String consultationType) {
         ensureSchema();
-        ExistingAppointment existing = currentAppointment(normalizeSessionId(sessionId));
+        ExistingAppointment existing = currentAppointment(normalizeSessionId(sessionId), consultationType);
         if (existing == null) {
             throw new IllegalArgumentException("No hay un turno activo para corregir el nombre.");
         }
@@ -265,8 +273,12 @@ public class AppointmentDemoService {
     }
 
     public AppointmentEntry activeAppointment(String sessionId) {
+        return activeAppointment(sessionId, null);
+    }
+
+    public AppointmentEntry activeAppointment(String sessionId, String consultationType) {
         ensureSchema();
-        ExistingAppointment existing = currentAppointment(normalizeSessionId(sessionId));
+        ExistingAppointment existing = currentAppointment(normalizeSessionId(sessionId), consultationType);
         return existing == null ? null : loadAppointment(existing.id(), sessionId);
     }
 
@@ -554,11 +566,12 @@ public class AppointmentDemoService {
         );
     }
 
-    private ExistingAppointment currentAppointment(String sessionId) {
+    private ExistingAppointment currentAppointment(String sessionId, String consultationType) {
         List<ExistingAppointment> appointments = jdbcTemplate.query("""
                         SELECT id, consultation_type, start_at
                         FROM appointment_bookings
                         WHERE demo_session_id = ?
+                          AND (? = '' OR consultation_type = ?)
                           AND status = 'ACTIVE'
                         ORDER BY updated_at DESC, created_at DESC
                         LIMIT 1
@@ -568,7 +581,7 @@ public class AppointmentDemoService {
                         resultSet.getString("consultation_type"),
                         resultSet.getTimestamp("start_at").toLocalDateTime()
                 ),
-                sessionId
+                sessionId, consultationType == null ? "" : consultationType, consultationType == null ? "" : consultationType
         );
         return appointments.isEmpty() ? null : appointments.get(0);
     }
