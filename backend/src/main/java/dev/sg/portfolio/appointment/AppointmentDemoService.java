@@ -252,6 +252,24 @@ public class AppointmentDemoService {
         return new AppointmentMutationResponse("RESCHEDULED", loadAppointment(existing.id(), sessionId));
     }
 
+    public AppointmentMutationResponse rename(String sessionId, String patientName) {
+        ensureSchema();
+        ExistingAppointment existing = currentAppointment(normalizeSessionId(sessionId));
+        if (existing == null) {
+            throw new IllegalArgumentException("No hay un turno activo para corregir el nombre.");
+        }
+        jdbcTemplate.update("UPDATE appointment_bookings SET patient_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'ACTIVE'",
+                normalizePatientName(patientName), existing.id());
+        logActivity(sessionId, "UPDATE", "Nombre del paciente corregido.");
+        return new AppointmentMutationResponse("UPDATED", loadAppointment(existing.id(), sessionId));
+    }
+
+    public AppointmentEntry activeAppointment(String sessionId) {
+        ensureSchema();
+        ExistingAppointment existing = currentAppointment(normalizeSessionId(sessionId));
+        return existing == null ? null : loadAppointment(existing.id(), sessionId);
+    }
+
     @Scheduled(cron = "${portfolio.appointment-demo.cleanup-cron:0 20 4 * * *}")
     public void cleanupExpiredDemoData() {
         ensureSchema();

@@ -100,7 +100,12 @@ public class AppointmentController {
                 sessionId,
                 request == null ? "" : request.consultationType()
         );
-        AppointmentFreeChatService.AppointmentFreeTurn turn = appointmentFreeChatService.prepare(effectiveRequest);
+        return appointmentFreeChatService.prepareAsync(effectiveRequest, freeModel)
+                .flatMapMany(turn -> appointmentEvents(message, sessionId, turn));
+    }
+
+    private Flux<ServerSentEvent<Object>> appointmentEvents(String message, String sessionId,
+            AppointmentFreeChatService.AppointmentFreeTurn turn) {
 
         Flux<ServerSentEvent<Object>> header = Flux.just(event("session", new SessionEvent(sessionId)));
         for (AgentTrace trace : turn.traces()) {
@@ -207,6 +212,13 @@ public class AppointmentController {
     }
 
     private String appointmentSessionId(ServerHttpRequest request, String fallbackSessionId) {
+        if (StringUtils.hasText(fallbackSessionId)) {
+            try {
+                return UUID.fromString(fallbackSessionId.trim()).toString();
+            } catch (IllegalArgumentException ignored) {
+                return UUID.nameUUIDFromBytes(fallbackSessionId.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            }
+        }
         String clientIp = clientIpResolver.resolve(request);
         if (StringUtils.hasText(clientIp) && !"unknown".equalsIgnoreCase(clientIp)) {
             return promptLimitService.safetyIdentifier(clientIp);

@@ -104,7 +104,7 @@ export function AgentConsole() {
   const [voiceConfigured, setVoiceConfigured] = useState<boolean | null>(null)
   const [openAiVoiceAvailable, setOpenAiVoiceAvailable] = useState<boolean | null>(null)
   const [openAiVoiceCreditCost, setOpenAiVoiceCreditCost] = useState(10)
-  const [chatRuntime, setChatRuntime] = useState<ChatRuntime>('openai')
+  const [chatRuntime, setChatRuntime] = useState<ChatRuntime>('free')
   const [openAiConfigured, setOpenAiConfigured] = useState<boolean | null>(null)
   const [qwenConfigured, setQwenConfigured] = useState<boolean | null>(null)
   const [qwenModel, setQwenModel] = useState('qwen3:0.6b')
@@ -593,7 +593,7 @@ export function AgentConsole() {
     if (!SpeechRecognition) {
       setVoiceStatus('error')
       setVoiceError(
-        'Este navegador no ofrece dictado gratuito Web Speech. Podes escribir el mensaje o usar OpenAI Realtime si esta disponible.',
+        'Este navegador no ofrece dictado gratuito Web Speech. Podes escribir el mensaje.',
       )
       return
     }
@@ -672,7 +672,7 @@ export function AgentConsole() {
     if (!SpeechRecognition) {
       setConversationStatus('error')
       setConversationError(
-        'Este navegador no ofrece dictado gratuito Web Speech. Podes usar Qwen por texto o OpenAI Realtime si esta disponible.',
+        'Este navegador no ofrece dictado gratuito Web Speech. Podes usar Qwen por texto.',
       )
       return
     }
@@ -1151,7 +1151,7 @@ export function AgentConsole() {
         Demo integrada
       </div>
 
-      {quotaModalOpen && openAiCreditRemaining !== null && (
+      {openAiConfigured === true && quotaModalOpen && openAiCreditRemaining !== null && (
         <div className="usage-modal-backdrop" role="presentation">
           <div
             className="usage-modal"
@@ -1213,7 +1213,7 @@ export function AgentConsole() {
             <span>{sessionId ? `session ${sessionId.slice(0, 8)}` : 'sin sesion'}</span>
           </div>
 
-          {openAiCreditRemaining !== null && (
+          {openAiConfigured === true && openAiCreditRemaining !== null && (
             <div className="usage-quota-strip">
               <div>
                 <span>Tokens OpenAI</span>
@@ -1385,20 +1385,6 @@ export function AgentConsole() {
               <button
                 type="button"
                 role="radio"
-                aria-checked={chatRuntime === 'openai'}
-                className={chatRuntime === 'openai' ? 'runtime-provider-active' : undefined}
-                onClick={() => setChatRuntime('openai')}
-                disabled={isStreaming || conversationActive || openAiBlocked}
-                title={openAiProviderTitle(openAiConfigured, openAiCreditsExhausted)}
-              >
-                <span className="runtime-provider-logo-frame">
-                  <img src={openAiLogoSrc} alt="" aria-hidden="true" />
-                </span>
-                OpenAI
-              </button>
-              <button
-                type="button"
-                role="radio"
                 aria-checked={chatRuntime === 'free'}
                 className={chatRuntime === 'free' ? 'runtime-provider-active' : undefined}
                 onClick={() => setChatRuntime('free')}
@@ -1414,6 +1400,11 @@ export function AgentConsole() {
                 </span>
                 Qwen
               </button>
+            </div>
+            <div className="runtime-rag-status" aria-label="Disponibilidad de RAG por proveedor">
+              <span title="La busqueda semantica se aplica en el gateway de SgInfra">
+                RAG + Qwen
+              </span>
             </div>
             <audio ref={remoteAudioRef} autoPlay playsInline className="conversation-audio" />
           </div>

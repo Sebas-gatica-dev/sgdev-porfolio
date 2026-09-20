@@ -29,6 +29,10 @@ public class PromptComposerService {
             if (extensionName == null || extensionName.isBlank()) {
                 continue;
             }
+            // The local core already includes the profile: avoid overflowing the small context window.
+            if ("business-context".equals(extensionName)) {
+                continue;
+            }
 
             try {
                 PromptLibraryService.PromptSource extensionPrompt = promptLibraryService.extensionPrompt(extensionName);
@@ -36,7 +40,7 @@ public class PromptComposerService {
                 extensionsBlock.append("\n\n## Extension: ")
                         .append(extensionName.trim().toLowerCase())
                         .append("\n")
-                        .append(extensionPrompt.content());
+                        .append(limit(extensionPrompt.content(), 600));
             } catch (IllegalArgumentException error) {
                 missingExtensions.add(extensionName.trim().toLowerCase());
             }
@@ -53,8 +57,8 @@ public class PromptComposerService {
                 """.formatted(
                 promptLibraryService.corePrompt(),
                 route.id(),
-                agentPrompt.content(),
-                extensionsBlock,
+                limit(agentPrompt.content(), 600),
+                limit(extensionsBlock.toString(), 800),
                 dynamicContextBlock
         ).trim();
 
@@ -81,9 +85,13 @@ public class PromptComposerService {
                     .append(", ")
                     .append(item.success() ? "ok" : "error")
                     .append(")\n")
-                    .append(item.content());
+                    .append(limit(item.content(), 500));
         }
         block.append("\n\nUsa este contexto solo si aporta valor para responder el mensaje actual.");
-        return block.toString();
+        return limit(block.toString(), 800);
+    }
+
+    private String limit(String value, int max) {
+        return value.length() <= max ? value : value.substring(0, max);
     }
 }

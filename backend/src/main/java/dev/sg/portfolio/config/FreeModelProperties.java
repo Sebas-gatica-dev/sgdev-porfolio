@@ -7,9 +7,12 @@ import org.springframework.util.StringUtils;
 public record FreeModelProperties(
         boolean enabled,
         String baseUrl,
-        String model
+        String model,
+        String appSlug,
+        String appToken
 ) {
     public boolean configured() {
-        return enabled && StringUtils.hasText(baseUrl);
+        return enabled
+                && StringUtils.hasText(baseUrl);
     }
 }

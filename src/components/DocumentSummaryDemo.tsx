@@ -112,7 +112,7 @@ export function DocumentSummaryDemo() {
         />
         <FileText size={34} />
         <h3>Subir PDF</h3>
-        <p>Exclusivamente PDF, hasta 10 MB. El archivo se usa una vez y se descarta al terminar.</p>
+        <p>PDF con texto seleccionable: hasta 10 MB, 30 páginas y 6500 caracteres. Qwen lo resume en el servidor; el archivo se descarta al terminar.</p>
 
         {file ? (
           <div className="document-file-pill" title={file.name}>

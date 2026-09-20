@@ -85,7 +85,7 @@ public class AgentController {
                 ? request.sessionId()
                 : UUID.randomUUID().toString();
         boolean requestedFreeRuntime = "free".equals(normalizeRuntime(request.runtime()));
-        boolean freeRuntime = requestedFreeRuntime || !openAi.configured();
+        boolean freeRuntime = true;
         String clientIp = clientIpResolver.resolve(serverRequest);
         PromptLimitStatus promptLimit = freeRuntime
                 ? promptLimitService.status(clientIp)
@@ -107,7 +107,13 @@ public class AgentController {
                     PromptPlan runtimePromptPlan = applyRuntimeIdentity(promptPlan, freeRuntime);
                     Flux<ServerSentEvent<Object>> header = runtimeHeader(sessionId, route, promptLimit, runtimePromptPlan);
 
-                    Flux<ServerSentEvent<Object>> body = chatBody(message, runtimePromptPlan, live, freeRuntime);
+                    Flux<ServerSentEvent<Object>> body = chatBody(
+                            message,
+                            runtimePromptPlan,
+                            live,
+                            freeRuntime,
+                            sessionId
+                    );
 
                     return Flux.concat(
                             header,
@@ -225,7 +231,8 @@ public class AgentController {
             String message,
             PromptPlan promptPlan,
             AtomicBoolean live,
-            boolean freeRuntime
+            boolean freeRuntime,
+            String sessionId
     ) {
         String directContactAnswer = directContactAnswer(message);
         if (directContactAnswer != null) {
@@ -240,7 +247,7 @@ public class AgentController {
             );
         }
         if (freeRuntime) {
-            return freeModelBody(message, promptPlan, live);
+            return freeModelBody(message, promptPlan, live, sessionId);
         }
         return openAi.configured()
                 ? openAiBody(message, promptPlan, live)
@@ -250,15 +257,16 @@ public class AgentController {
     private Flux<ServerSentEvent<Object>> freeModelBody(
             String message,
             PromptPlan promptPlan,
-            AtomicBoolean live
+            AtomicBoolean live,
+            String sessionId
     ) {
         live.set(false);
         Flux<ServerSentEvent<Object>> freeTrace = Flux.just(
                 event("trace", new AgentTrace(
                         "Modelo gratuito local",
                         freeModel.configured()
-                                ? "Request enviado a FastAPI/Ollama con " + freeModel.model() + "."
-                                : "El cliente local no esta configurado; se usa fallback demo.",
+                                ? "Request enviado al gateway RAG/Ollama de SgInfra con " + freeModel.model() + "."
+                                : "El gateway RAG no esta configurado; se usa fallback demo.",
                         "fallback"
                 ))
         );
@@ -266,7 +274,7 @@ public class AgentController {
         Flux<ServerSentEvent<Object>> identityPrefix = freeRuntimeIdentityPrefix(message);
 
         Flux<ServerSentEvent<Object>> chunks = freeModel.configured()
-                ? freeModel.streamText(message, promptPlan.instructions())
+                ? freeModel.streamText(message, promptPlan.instructions(), sessionId)
                         .map(text -> event("chunk", new TextChunk(text)))
                         .onErrorResume(error -> simulator.streamFreeModelFallback(
                                 message,
@@ -276,7 +284,7 @@ public class AgentController {
                 : simulator.streamFreeModelFallback(
                         message,
                         freeModel.model(),
-                        "el modelo gratuito local no esta configurado en PORTFOLIO_FREE_MODEL_BASE_URL."
+                        "el gateway RAG no esta configurado con PORTFOLIO_RAG_APP_TOKEN."
                 );
 
         return Flux.concat(freeTrace, identityPrefix, chunks);
@@ -356,7 +364,7 @@ public class AgentController {
                 ## Runtime Actual (Prioridad Alta)
                 - Estas respondiendo con Qwen (%s), ejecutado como modelo gratuito local mediante FastAPI/Ollama.
                 - Si el usuario pregunta quien sos, que modelo usas o que proveedor esta activo, deci claramente que esta respuesta esta usando Qwen (%s).
-                - No digas que sos OpenAI ni que estas impulsado por OpenAI cuando el runtime actual es Qwen; podes mencionar que el portfolio tambien ofrece OpenAI como opcion separada.
+                - El unico proveedor disponible es Qwen local. No ofrezcas OpenAI ni GPT.
                 """.formatted(model, model);
 
         return new PromptPlan(

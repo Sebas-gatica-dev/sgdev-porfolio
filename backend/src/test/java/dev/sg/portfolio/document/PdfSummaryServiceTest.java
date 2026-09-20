@@ -6,7 +6,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import dev.sg.portfolio.config.OpenAiProperties;
-import dev.sg.portfolio.service.OpenAiResponsesClient;
+import dev.sg.portfolio.service.FreeModelClient;
+import reactor.core.publisher.Flux;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
@@ -17,8 +24,8 @@ import reactor.test.StepVerifier;
 
 class PdfSummaryServiceTest {
 
-    private final OpenAiResponsesClient openAi = mock(OpenAiResponsesClient.class);
-    private final PdfSummaryService service = new PdfSummaryService(openAi, properties());
+    private final FreeModelClient freeModel = mock(FreeModelClient.class);
+    private final PdfSummaryService service = new PdfSummaryService(freeModel);
 
     @Test
     void rejectsBodiesWithoutPdfSignature() {
@@ -32,15 +39,24 @@ class PdfSummaryServiceTest {
     }
 
     @Test
-    void summarizesValidatedPdfInMemory() {
-        byte[] pdfBytes = "%PDF-1.4 demo".getBytes(StandardCharsets.US_ASCII);
-        when(openAi.summarizePdf(any(byte[].class), eq("demo.pdf"))).thenReturn(Mono.just("resumen"));
+    void summarizesValidatedPdfInMemory() throws Exception {
+        byte[] pdfBytes;
+        try (var doc = new PDDocument(); var out = new ByteArrayOutputStream()) {
+            var page = new PDPage(); doc.addPage(page);
+            try (var content = new PDPageContentStream(doc, page)) {
+                content.beginText(); content.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                content.showText("Proyecto de prueba. Entrega el lunes."); content.endText();
+            }
+            doc.save(out); pdfBytes = out.toByteArray();
+        }
+        when(freeModel.streamText(any(), any(), eq(""))).thenReturn(Flux.just("resumen"));
+        when(freeModel.model()).thenReturn("qwen3:0.6b");
 
         StepVerifier.create(service.summarize(request("demo.pdf", pdfBytes)))
                 .assertNext(response -> {
                     org.junit.jupiter.api.Assertions.assertEquals("demo.pdf", response.fileName());
                     org.junit.jupiter.api.Assertions.assertEquals(pdfBytes.length, response.sizeBytes());
-                    org.junit.jupiter.api.Assertions.assertEquals("gpt-5-mini", response.model());
+                    org.junit.jupiter.api.Assertions.assertEquals("qwen3:0.6b", response.model());
                     org.junit.jupiter.api.Assertions.assertTrue(response.ephemeral());
                     org.junit.jupiter.api.Assertions.assertEquals("resumen", response.summary());
                 })

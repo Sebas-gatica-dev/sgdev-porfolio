@@ -103,7 +103,7 @@ export const demoCards = [
       'Asistente integrado al portfolio de Sebastian Gatica para consultar perfil, stack, demos y enfoque profesional.',
     route: '/demos/chat' as Route,
     icon: MessageSquareText,
-    points: ['Chat streaming', 'Modo conversacion', 'Prompt editable', 'OpenAI API'],
+    points: ['Chat streaming', 'Modo conversacion', 'Prompt editable', 'Qwen local'],
     status: 'Demo principal',
   },
   {

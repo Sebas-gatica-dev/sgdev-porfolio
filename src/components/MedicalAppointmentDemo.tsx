@@ -101,11 +101,13 @@ export function MedicalAppointmentDemo() {
   const [openAiVoiceTokenCost, setOpenAiVoiceTokenCost] = useState(10)
   const [qwenConfigured, setQwenConfigured] = useState<boolean | null>(null)
   const [qwenModel, setQwenModel] = useState('qwen3:0.6b')
-  const [callRuntime, setCallRuntime] = useState<ChatRuntime>('openai')
+  const [callRuntime, setCallRuntime] = useState<ChatRuntime>('free')
   const [status, setStatus] = useState<CallStatus>('idle')
   const [model, setModel] = useState<string | null>(null)
   const [liveTranscript, setLiveTranscript] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [textMessage, setTextMessage] = useState('')
+  const [turnPending, setTurnPending] = useState(false)
   const [schedule, setSchedule] = useState<AppointmentSchedule | null>(null)
   const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [availabilityChecked, setAvailabilityChecked] = useState(false)
@@ -120,7 +122,7 @@ export function MedicalAppointmentDemo() {
     },
   ])
 
-  const sessionIdRef = useRef<string>(crypto.randomUUID())
+  const sessionIdRef = useRef<string>(getAppointmentSessionId())
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
@@ -451,11 +453,12 @@ export function MedicalAppointmentDemo() {
   }
 
   async function submitFreeAppointmentTurn(prompt: string) {
-    if (!browserCallActiveRef.current || !prompt.trim()) {
+    if (freeTurnPendingRef.current || !prompt.trim()) {
       return
     }
 
     freeTurnPendingRef.current = true
+    setTurnPending(true)
     const assistantId = crypto.randomUUID()
     let assistantText = ''
     setMessages((current) => [
@@ -486,6 +489,7 @@ export function MedicalAppointmentDemo() {
       appendAssistantChunk(assistantId, `No pude responder con Qwen: ${assistantText}`)
     } finally {
       freeTurnPendingRef.current = false
+      setTurnPending(false)
       void refreshPanels()
     }
 
@@ -1020,24 +1024,6 @@ export function MedicalAppointmentDemo() {
               <button
                 type="button"
                 role="radio"
-                aria-checked={callRuntime === 'openai'}
-                className={callRuntime === 'openai' ? 'runtime-provider-active' : undefined}
-                onClick={() => setCallRuntime('openai')}
-                disabled={callActive || voiceConfigured === false || openAiVoiceAvailable === false}
-                title={
-                  openAiVoiceAvailable === false || voiceConfigured === false
-                    ? 'OpenAI Realtime no esta disponible; usa Qwen.'
-                    : 'Usar OpenAI Realtime'
-                }
-              >
-                <span className="runtime-provider-logo-frame">
-                  <img src={openAiLogoSrc} alt="" aria-hidden="true" />
-                </span>
-                OpenAI
-              </button>
-              <button
-                type="button"
-                role="radio"
                 aria-checked={callRuntime === 'free'}
                 className={callRuntime === 'free' ? 'runtime-provider-active' : undefined}
                 onClick={() => setCallRuntime('free')}
@@ -1085,6 +1071,25 @@ export function MedicalAppointmentDemo() {
           </div>
 
           {error && <p className="call-error">{error}</p>}
+
+          <form className="appointment-text-form" onSubmit={(event) => {
+            event.preventDefault()
+            const text = textMessage.trim()
+            if (!text || turnPending || callActive) return
+            setTextMessage('')
+            setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', content: text }])
+            void submitFreeAppointmentTurn(text)
+          }}>
+            <label htmlFor="appointment-message">También podés gestionar el turno por texto</label>
+            <div className="call-controls">
+              <input id="appointment-message" value={textMessage} onChange={(event) => setTextMessage(event.target.value)}
+                placeholder="Ej.: Me llamo Ana, quiero un turno el lunes a las 10"
+                disabled={turnPending || callActive} maxLength={1000} />
+              <button type="submit" className="call-action" disabled={turnPending || callActive || !textMessage.trim()}>
+                {turnPending ? 'Procesando…' : 'Enviar'}
+              </button>
+            </div>
+          </form>
 
           <div className="call-log" ref={callLogRef} aria-live="polite">
             {messages.map((message) => (
@@ -1260,4 +1265,17 @@ function timeForSpeech(hourValue: string, minuteValue: string) {
     return `${spokenHour} y media ${period}`
   }
   return `${spokenHour} y ${minute} ${period}`
+}
+
+function getAppointmentSessionId(): string {
+  const key = 'portfolio-appointment-session'
+  try {
+    const existing = sessionStorage.getItem(key)
+    if (existing) return existing
+    const created = crypto.randomUUID()
+    sessionStorage.setItem(key, created)
+    return created
+  } catch {
+    return crypto.randomUUID()
+  }
 }

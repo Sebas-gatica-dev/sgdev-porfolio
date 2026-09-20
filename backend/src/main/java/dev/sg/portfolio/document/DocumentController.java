@@ -40,11 +40,6 @@ public class DocumentController {
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public Mono<ResponseEntity<Object>> summarizePdf(ServerHttpRequest request) {
-        PromptLimitStatus promptLimit = promptLimitService.reservePrompt(clientIpResolver.resolve(request));
-        if (!promptLimit.allowed()) {
-            return Mono.just(promptLimitResponse(promptLimit));
-        }
-
         return pdfSummaryService.summarize(request)
                 .cast(Object.class)
                 .flatMap(response -> okResponse(response))

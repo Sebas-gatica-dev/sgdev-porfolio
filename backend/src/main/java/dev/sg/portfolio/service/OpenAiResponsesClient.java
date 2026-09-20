@@ -54,6 +54,9 @@ public class OpenAiResponsesClient {
     }
 
     private Flux<String> streamTextInternal(String message, String instructions) {
+        if (!configured()) {
+            return Flux.error(new IllegalStateException("El proveedor de pago esta deshabilitado. Usa Qwen."));
+        }
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", properties.model());
         payload.put("store", false);
@@ -81,6 +84,9 @@ public class OpenAiResponsesClient {
     }
 
     public Mono<String> summarizePdf(byte[] pdfBytes, String fileName) {
+        if (!configured()) {
+            return Mono.error(new IllegalStateException("El proveedor de pago esta deshabilitado. Usa Qwen."));
+        }
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", documentModel());
         payload.put("store", false);

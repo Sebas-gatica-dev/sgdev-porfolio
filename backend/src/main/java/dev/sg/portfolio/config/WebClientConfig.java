@@ -30,11 +30,17 @@ public class WebClientConfig {
     @Bean
     WebClient freeModelWebClient(FreeModelProperties properties) {
         String baseUrl = properties.baseUrl() == null || properties.baseUrl().isBlank()
-                ? "http://localhost:8795"
+                ? "http://localhost:8796"
                 : properties.baseUrl();
-        return WebClient.builder()
+        WebClient.Builder builder = WebClient.builder()
                 .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        if (properties.appSlug() != null && !properties.appSlug().isBlank()) {
+            builder.defaultHeader("X-SGInfra-App-Slug", properties.appSlug());
+        }
+        if (properties.appToken() != null && !properties.appToken().isBlank()) {
+            builder.defaultHeader("X-SGInfra-App-Token", properties.appToken());
+        }
+        return builder.build();
     }
 }

@@ -58,7 +58,7 @@ public class PortfolioController {
                 Map.entry("promptLimitChatTokenCost", promptAvailability.chatTokenCost()),
                 Map.entry("promptLimitNewVisitor", promptAvailability.newVisitor()),
                 Map.entry("promptLimitTokenRequestPending", promptAvailability.tokenRequestPending()),
-                Map.entry("openaiPromptAvailable", promptAvailability.allowed()),
+                Map.entry("openaiPromptAvailable", false),
                 Map.entry("openaiVoiceAvailable", realtime.configured() && voiceAvailability.allowed()),
                 Map.entry("openaiVoiceCreditCost", promptLimitService.voiceMinuteCost()),
                 Map.entry("openaiVoiceTokenCost", promptLimitService.voiceMinuteCost()),
@@ -76,7 +76,7 @@ public class PortfolioController {
                 "name", "SG AI Agent Portfolio",
                 "backend", "Spring Boot WebFlux",
                 "runtime", "Portfolio assistant architecture",
-                "llm", "OpenAI Responses API + Realtime API",
+                "llm", "Qwen local + Ollama + Web Speech",
                 "architecture", List.of(
                         "coordinator router",
                         "specialist agents",

@@ -46,7 +46,7 @@ export function AboutPortfolioModal({ onClose }: { onClose: () => void }) {
 
           <ul className="about-modal-points">
             <li>
-              Sus demos se alimentan principalmente de modelos mini de OpenAI, y pronto voy a
+              Sus demos usan Qwen ejecutado localmente con Ollama, y pronto voy a
               subir nuevos proyectos en OpenClaw.
             </li>
             <li>

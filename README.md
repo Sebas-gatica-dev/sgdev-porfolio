@@ -2,20 +2,12 @@
 
 Portfolio de Sebastian Gatica para presentar trabajo freelance en aplicaciones Java Full Stack con IA aplicada, arquitectura multiagente, automatizacion de workflows y demos navegables.
 
-## Que incluye
+## Demos con Qwen local
 
-- Frontend React/Vite con una interfaz de portfolio ADK-first.
-- Backend Spring Boot WebFlux con runtime ADK-aligned: coordinator, especialistas, prompt composer, contexto dinamico y trazas SSE.
-- Consumo de GPT por OpenAI Responses API usando `WebClient`.
-- Prompts versionados por agente y extensiones (`core`, `agents`, `extensions`, `realtime`).
-- Modo voz OpenAI en el chat con WebRTC y transcripcion Realtime.
-- Modo conversacion OpenAI con respuesta hablada usando Realtime.
-- Fallback gratuito de voz: dictado del navegador + Qwen + voz local del navegador.
-- Demo de reserva medica con herramientas, agenda viva y persistencia PostgreSQL.
-- Limite de tokens por IP con persistencia JDBC: 200 tokens, 10 por interaccion y 5 minutos de voz.
-- Modelo gratuito local con FastAPI + Ollama + Qwen3 0.6B para continuar cuando se agota el cupo por IP.
-- Modo demo local si no existe `OPENAI_API_KEY`.
-- Dockerfile listo para deployar la app completa.
+- Chat y voz del navegador, con perfil verificado en español e historial por sesión.
+- Turnos por texto o voz: nombre, fecha y hora por separado; correcciones antes y después de reservar; disponibilidad y operaciones persistidas en PostgreSQL.
+- PDF: extracción local con PDFBox y resumen con Qwen. Hasta 10 MB, 30 páginas y 6500 caracteres; los escaneos sin texto requieren OCR.
+- OpenAI/GPT está deshabilitado en el backend aunque quede una clave antigua configurada. No se ofrecen cuotas ni opciones de pago en la interfaz.
 
 ## Desarrollo
 
@@ -24,122 +16,32 @@ npm install
 npm run dev
 ```
 
-La web corre en `http://localhost:5173` y el backend en `http://localhost:8787`.
-
-## OpenAI
-
-Configurar:
-
-```bash
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-5-mini
-OPENAI_VOICE_MODEL=gpt-4o-mini-transcribe
-OPENAI_VOICE_LANGUAGE=es
-OPENAI_CONVERSATION_MODEL=gpt-realtime-mini
-OPENAI_CONVERSATION_VOICE=alloy
-PORTFOLIO_CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:*,http://127.0.0.1:*
-PORTFOLIO_IP_PROMPT_LIMIT_ENABLED=true
-PORTFOLIO_IP_TOKEN_LIMIT_MAX_TOKENS=200
-PORTFOLIO_IP_TOKEN_LIMIT_CHAT_COST=10
-PORTFOLIO_IP_TOKEN_LIMIT_VOICE_COST=10
-PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=120
-PORTFOLIO_IP_TOKEN_LIMIT_MAX_VOICE_SECONDS=300
-PORTFOLIO_USAGE_ADMIN_TOKEN=change-me-admin-token
-PORTFOLIO_FREE_MODEL_ENABLED=true
-PORTFOLIO_FREE_MODEL_BASE_URL=http://localhost:8795
-PORTFOLIO_FREE_MODEL_NAME=qwen3:0.6b
-PORTFOLIO_FREE_MODEL_NUM_CTX=2048
-PORTFOLIO_FREE_MODEL_MAX_TOKENS=420
-PORTFOLIO_DB_URL=jdbc:postgresql://localhost:5432/sg_medical_appointments_demo
-PORTFOLIO_DB_DRIVER=org.postgresql.Driver
-PORTFOLIO_DB_USER=postgres
-PORTFOLIO_DB_PASSWORD=postgres
-```
-
-El backend usa Spring WebFlux para llamar `POST https://api.openai.com/v1/responses` con `stream: true`.
-Para voz, el backend genera un `client_secret` efimero con `POST /v1/realtime/client_secrets`
-y el navegador abre WebRTC contra la Realtime API sin exponer `OPENAI_API_KEY`.
-Cada sesion de voz queda limitada a 120 segundos y consume tokens de demo por IP.
-La UI solo habilita la variante OpenAI de `Dictar` y `Conversar` cuando `/api/portfolio/health`
-devuelve `openaiVoiceAvailable=true`: Realtime configurado y tokens/minutos suficientes para el costo
-de voz. Cuando OpenAI no esta configurado o no alcanza el saldo de voz, los botones pasan al modo
-gratuito: Web Speech API en el navegador para dictar, Qwen para responder y `speechSynthesis`
-para leer la respuesta. Cuando una IP agota sus tokens, el chat permite solicitar mas tokens por mail
-y tambien seguir con el modelo gratuito local sin consumir OpenAI.
-
-Si al activar voz aparece un 403, el backend ya esta funcionando pero OpenAI rechazo la sesion:
-normalmente falta billing/permisos de Realtime en la API key o acceso al modelo configurado en
-`OPENAI_VOICE_MODEL`.
-
-## Modelo gratuito local
-
-El modo gratuito esta pensado para VPS chicos. La app nueva vive en:
-
-```text
-free-model-api/
-```
-
-Es un servicio FastAPI que llama a Ollama y transmite chunks SSE al backend Spring.
-El modelo default es `qwen3:0.6b`, porque su quantization Q4 ocupa alrededor de 523 MB
-y mantiene mejor dialogo/instrucciones que opciones ultra pequenas como Gemma 3 270M.
-
-En Docker, `docker-compose.yml` levanta:
-
-- `ollama`: runtime local del modelo.
-- `ollama-pull`: descarga `PORTFOLIO_FREE_MODEL_NAME`.
-- `free-model`: FastAPI en `http://free-model:8795`.
-- `backend`: usa `PORTFOLIO_FREE_MODEL_BASE_URL=http://free-model:8795`.
-
-Uso local fuera de Docker:
-
-```bash
-ollama pull qwen3:0.6b
-cd free-model-api
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8795
-```
-
-Luego correr el backend con:
+La web usa `http://localhost:5173` y el backend `http://localhost:8787`.
+Para Ollama con el puente FastAPI local:
 
 ```bash
 PORTFOLIO_FREE_MODEL_ENABLED=true
 PORTFOLIO_FREE_MODEL_BASE_URL=http://localhost:8795
 PORTFOLIO_FREE_MODEL_NAME=qwen3:0.6b
+PORTFOLIO_FREE_MODEL_NUM_CTX=4096
+PORTFOLIO_RAG_APP_TOKEN=
 ```
 
-Flujo en la UI:
+En Docker Compose el puente está en `http://free-model:8795`. Compose incluye Ollama y descarga el modelo configurado. El procesamiento de voz depende del reconocimiento y síntesis disponibles en el navegador; el texto funciona sin micrófono.
 
-1. El usuario consume sus tokens por IP con OpenAI.
-2. El backend emite el evento SSE `free_model_offer`.
-3. El chat muestra un tooltip para usar el modelo gratuito o solicitar mas tokens.
-4. Si el usuario acepta, el mismo prompt se reintenta con `runtime: "free"`.
-5. `Dictar gratis` usa Web Speech API del navegador y no consume tokens OpenAI.
-6. `Conversar gratis` funciona por turnos: navegador transcribe, Qwen responde por streaming y
-   la voz local del navegador lee la respuesta.
+## Gateway RAG opcional
 
-## Voz gratuita y comparativa
+La integración SgInfra se conserva: configurá `PORTFOLIO_FREE_MODEL_BASE_URL`, `PORTFOLIO_RAG_APP_SLUG` y `PORTFOLIO_RAG_APP_TOKEN`. Con token, el cliente usa `/v1/chat/stream`; sin token usa `/chat/stream` del puente local. La red privada que permite acceder al gateway debe añadirse en el override de la instalación. Nunca envíes el token al navegador.
 
-La demo queda con dos calidades visibles:
+## Límites del runtime local
 
-- OpenAI Realtime: WebRTC, baja latencia, transcripcion y respuesta hablada integradas, pero depende
-  de API key, billing/permisos y tokens por IP.
-- Gratis/Qwen: no consume OpenAI; usa el dictado y TTS del navegador cuando estan disponibles. Es
-  mas simple y menos realtime, pero mantiene la demo conversable aun sin saldo OpenAI.
+El puente usa 4096 tokens de contexto, instrucciones compactas, hasta 3 intercambios recientes y sesiones de 30 minutos. Serializa las generaciones para limitar la memoria de la VPS. El gestor de turnos guarda su estado conversacional durante 2 horas en memoria y ejecuta las herramientas de agenda en el backend; Qwen ayuda a interpretar mensajes no reconocidos. Las reservas quedan en PostgreSQL. Un reinicio descarta conversaciones pendientes.
 
-Opciones para evolucionar el modo gratuito:
-
-- Web Speech API: MDN documenta reconocimiento y sintesis de voz desde el navegador, con soporte
-  posible en dispositivo segun navegador y paquetes de idioma:
-  https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API/Using_the_Web_Speech_API
-- Qwen3-ASR: modelos Qwen de reconocimiento de voz para multiples idiomas/dialectos, con modo
-  streaming/offline:
-  https://huggingface.co/Qwen/Qwen3-ASR-1.7B
-- Qwen3-TTS: familia open-source de TTS Qwen con generacion streaming y soporte multilingue:
-  https://github.com/QwenLM/Qwen3-TTS
-- Piper: TTS local rapido para una alternativa liviana en VPS si Qwen3-TTS resulta pesado:
-  https://github.com/rhasspy/piper
+El modelo pequeño puede equivocarse en preguntas abiertas; no se le permite escribir directamente reservas ni inventar confirmaciones. Ver `docs/validacion-qwen-produccion.md` para la evaluación de modelos y la validación del despliegue.
 
 ## Runtime ADK-aligned y prompt modular
+
+> Referencia histórica de la arquitectura anterior. Las referencias a OpenAI, GPT y cuotas de las secciones siguientes describen código heredado deshabilitado. La configuración vigente es la sección «Demos con Qwen local» de este documento.
 
 El chat usa una arquitectura inspirada en Google ADK sin abandonar el backend Spring actual. La idea practica es bajar las primitivas `Agent`, `Tool`, `Session/State`, `Workflow`, `Event/Trace` y `Human gate` a piezas concretas del portfolio.
 
@@ -1716,3 +1618,23 @@ Si despues se quiere convertir en generador de codigo, ya hay un camino claro:
 ```text
 agregar modos -> ajustar prompts -> ampliar request -> renderizar codigo mejor
 ```
+
+## Despliegue centralizado en SgInfra
+
+Este repositorio se publica con el slug `portfolio`. El workflow
+`.github/workflows/ci.yml` valida frontend, backend y Docker Compose; después de
+un push válido a `main` envía `repository_dispatch` a `SgInfra`. Para activar
+esa notificación, configurar el secret `SGINFRA_DISPATCH_TOKEN` en GitHub.
+
+La VPS ejecuta secuencialmente:
+
+```bash
+cd /opt/sgdev-infra
+./scripts/app-deploy.sh portfolio --operation deploy-latest
+./scripts/app-healthcheck.sh portfolio --require-public-url
+```
+
+La aplicación queda en `https://sgdev.com.ar/portfolio/` y se despliega al
+final del grupo de producción por ser la experiencia principal a la que apunta
+la raíz pública. Ollama ya pertenece al runtime compartido de SgInfra y no se
+reinicia durante este deploy.

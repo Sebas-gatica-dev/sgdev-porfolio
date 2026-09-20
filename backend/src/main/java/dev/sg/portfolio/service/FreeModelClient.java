@@ -38,14 +38,17 @@ public class FreeModelClient {
         return StringUtils.hasText(properties.model()) ? properties.model() : "qwen3:0.6b";
     }
 
-    public Flux<String> streamText(String message, String instructions) {
+    public Flux<String> streamText(String message, String instructions, String sessionId) {
         Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("prompt", message == null ? "" : message);
         payload.put("message", message == null ? "" : message);
         payload.put("instructions", instructions == null ? "" : instructions);
         payload.put("model", model());
+        payload.put("sessionId", sessionId == null ? "" : sessionId);
+        payload.put("metadata", Map.of("source", "sgdev-portfolio", "runtime", "qwen"));
 
         return webClient.post()
-                .uri("/chat/stream")
+                .uri(StringUtils.hasText(properties.appToken()) ? "/v1/chat/stream" : "/chat/stream")
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .bodyValue(payload)
                 .retrieve()
@@ -56,7 +59,7 @@ public class FreeModelClient {
                 .bodyToFlux(String.class)
                 .handle((data, sink) -> {
                     String delta = extractDelta(data);
-                    if (StringUtils.hasText(delta)) {
+                    if (delta != null && !delta.isEmpty()) {
                         sink.next(delta);
                     }
                 });
@@ -71,7 +74,7 @@ public class FreeModelClient {
             JsonNode root = objectMapper.readTree(data);
             String type = root.path("type").asText();
             if ("error".equals(type)) {
-                String message = root.path("message").asText("El modelo gratuito local devolvio un error.");
+                String message = root.path("message").asText("El gateway RAG devolvio un error.");
                 throw new IllegalStateException(message);
             }
             if ("chunk".equals(type)) {

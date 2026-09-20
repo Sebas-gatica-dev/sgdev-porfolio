@@ -18,6 +18,7 @@ public record OpenAiProperties(
         String realtimeWebrtcUrl
 ) {
     public boolean configured() {
-        return StringUtils.hasText(apiKey);
+        // Paid runtimes are disabled, including when an old deployment still has a key.
+        return false;
     }
 }
