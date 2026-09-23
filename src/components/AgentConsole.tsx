@@ -1401,11 +1401,7 @@ export function AgentConsole() {
                 Qwen
               </button>
             </div>
-            <div className="runtime-rag-status" aria-label="Disponibilidad de RAG por proveedor">
-              <span title="La busqueda semantica se aplica en el gateway de SgInfra">
-                RAG + Qwen
-              </span>
-            </div>
+            
             <audio ref={remoteAudioRef} autoPlay playsInline className="conversation-audio" />
           </div>
 

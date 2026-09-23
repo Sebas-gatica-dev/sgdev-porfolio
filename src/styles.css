@@ -377,7 +377,7 @@ main {
   margin: 1rem 0;
   max-width: 10.5ch;
   color: var(--heading);
-  font-size: 6.6rem;
+  font-size: 5.6rem;
   line-height: 0.9;
   letter-spacing: 0;
 }
@@ -386,7 +386,7 @@ main {
   max-width: 44rem;
   margin: 0;
   color: var(--body);
-  font-size: 1.28rem;
+  font-size: 1.18rem;
   line-height: 1.45;
 }
 
@@ -3375,7 +3375,7 @@ main {
 .runtime-provider-toggle {
   flex: 0 0 clamp(12rem, 18vw, 15rem);
   display: grid;
-  grid-template-columns: repeat(2, minmax(4.75rem, 1fr));
+  grid-template-columns: repeat(1, minmax(4.75rem, 1fr));
   gap: 0.18rem;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -3758,33 +3758,7 @@ main {
   gap: 2rem;
 }
 
-.runtime-rag-status {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 7px;
-  font-size: 0.72rem;
-}
 
-.runtime-rag-status span,
-.runtime-rag-status button {
-  padding: 5px 9px;
-  border: 1px solid rgba(74, 222, 128, 0.28);
-  border-radius: 999px;
-}
-
-.runtime-rag-status span {
-  color: #bbf7d0;
-  background: rgba(22, 101, 52, 0.2);
-}
-
-.runtime-rag-status button {
-  color: rgba(203, 213, 225, 0.52);
-  background: rgba(71, 85, 105, 0.18);
-  border-color: rgba(148, 163, 184, 0.18);
-  cursor: not-allowed;
-}
 
 .project-card-grid {
   display: grid;
@@ -4186,8 +4160,8 @@ main {
   }
 
   .hero-copy h1 {
-    max-width: 11ch;
-    font-size: 5.4rem;
+    max-width: 19.5ch;
+    font-size: 3.6rem;
   }
 
   .page-intro h1,

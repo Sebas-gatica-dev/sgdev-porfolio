@@ -24,12 +24,14 @@ export function HomePage({ onNavigate }: { onNavigate: (path: Route) => void }) 
             <Sparkles size={18} />
             Sebastian Gatica
           </div>
-          <h1>Full Stack Java con IA aplicada.</h1>
-          <p className="hero-lead">
-            Soy Sebastian Gatica. Tengo más de 2 años de experiencia desarrollando
-            soluciones con Java/Spring y React/Next.js, PHP/Laravel(Stack TALL), Python/Flask y flujos multiagente con IA. Me especializo
-            en integraciones, agentes y prototipos de IA.
-          </p>
+          <h1>Full Stack Developer · AI & Cloud</h1>
+
+       <p className="hero-lead">
+        Desarrollo soluciones end-to-end, desde la arquitectura y el código
+        hasta su despliegue en producción. Trabajo con Java/Spring,
+        React/Next.js, PHP/Laravel y Python, integrando IA, automatización
+        y prácticas DevOps para construir sistemas escalables y mantenibles.
+      </p>
 
           <div className="hero-actions">
             <PageLink className="button button-primary" href="/demos" onNavigate={onNavigate}>

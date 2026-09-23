@@ -50,19 +50,18 @@ export type DemoPlaybook = {
 
 export const stack = [
   'Java / Spring Boot',
-  'Spring MVC / JPA',
-  'WebFlux / Reactor / R2DBC',
+  'PHP / Laravel',
+  'WordPress / WooCommerce',
   'React / Next.js',
-  'TypeScript / Vite',
+  'TypeScript / JavaScript',
   'Python / Flask',
-  'Google ADK',
-  'Spring AI / RAG',
-  'PostgreSQL / pgvector',
-  'MySQL / MariaDB',
-  'Docker / Nginx',
-  'Linux VPS',
+  'AI / Agents / RAG',
+  'PostgreSQL / MySQL',
+  'Docker / Kubernetes',
+  'Terraform / CI/CD',
+  'Linux / Nginx',
   'AWS / Google Cloud',
-]
+];
 
 export const capabilityLayers: RuntimeLayer[] = [
   {
