@@ -13,9 +13,11 @@ import { AboutPortfolioModal } from './components/AboutPortfolioModal'
 import { PageLink } from './components/PageLink'
 import { primaryNavItems, profileLinks } from './data/siteContent'
 import { ContactPage } from './pages/ContactPage'
+import { AdminPage } from './pages/AdminPage'
 import { AgentChatDemoPage, DocumentDemoPage, MedicalAppointmentDemoPage } from './pages/DemoDetailPages'
 import { DemosPage } from './pages/DemosPage'
 import { HomePage } from './pages/HomePage'
+import { LoginPage } from './pages/LoginPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 
@@ -145,6 +147,8 @@ function App() {
           <ProjectDetailPage slug={route.replace('/proyectos/', '')} onNavigate={navigate} />
         )}
         {route === '/contacto' && <ContactPage />}
+        {(route === '/login' || route === '/admin/login') && <LoginPage onNavigate={navigate} />}
+        {route === '/admin' && <AdminPage onNavigate={navigate} />}
       </main>
 
       <footer className="footer">

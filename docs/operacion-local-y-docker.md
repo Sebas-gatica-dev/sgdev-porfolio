@@ -31,6 +31,21 @@ CONTACT_MAIL_TO_ADDRESS=
 CONTACT_MAIL_FROM_ADDRESS=contacto@sgdev.com.ar
 ```
 
+## Administración de proyectos
+
+Configura `PORTFOLIO_ADMIN_USERNAME` si necesitas reemplazar el usuario predeterminado `sgdev-admin`. Define `PORTFOLIO_ADMIN_PASSWORD_HASH` con un hash BCrypt o `PORTFOLIO_ADMIN_PASSWORD` en el entorno privado del backend. La contraseña y el hash quedan fuera de Git y de las variables `VITE_*`. Con ambas variables vacías, el sitio público sigue disponible y el login devuelve `401`.
+
+Para levantar Docker con el mismo prefijo de la VPS:
+
+```powershell
+$env:VITE_BASE_PATH = '/portfolio/'
+docker compose up -d --build
+```
+
+Abre `http://localhost:8080/portfolio/admin/login`. En producción, usa `https://sgdev.com.ar/portfolio/admin/login`. La cookie de sesión se invalida al cerrar sesión. Reiniciar el backend requiere volver a ingresar. El proxy interno conserva `X-Forwarded-Proto: https` del proxy que termina TLS para que el backend emita la cookie con `Secure`. Las imágenes se guardan en el volumen `portfolio_project_media`.
+
+Las integraciones de servidor pueden usar `PORTFOLIO_ADMIN_TOKEN` para el API administrativo de proyectos. Si ese token está vacío, pueden usar `PORTFOLIO_USAGE_ADMIN_TOKEN`. El panel del navegador usa la cookie de sesión.
+
 ## Desarrollo local sin Docker
 
 Levantar frontend y backend:

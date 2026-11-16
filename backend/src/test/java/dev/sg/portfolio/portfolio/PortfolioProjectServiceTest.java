@@ -70,14 +70,41 @@ class PortfolioProjectServiceTest {
         ))).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void deletesMediaFilesWhenReplacingOrRemovingImages() {
+        Path mediaDir = tempDir.resolve("media");
+        PortfolioProjectService service = service(mediaDir);
+        PortfolioProject project = service.save(project("published"));
+        var initialCover = service.uploadImage(project.id(), image("cover", "Portada inicial"));
+        var gallery = service.uploadImage(project.id(), image("gallery", "Galería"));
+        assertThat(mediaDir.resolve(initialCover.storageKey())).exists();
+        assertThat(mediaDir.resolve(gallery.storageKey())).exists();
+
+        var updatedCover = service.uploadImage(project.id(), image("cover", "Portada nueva"));
+        assertThat(mediaDir.resolve(initialCover.storageKey())).doesNotExist();
+        assertThat(mediaDir.resolve(updatedCover.storageKey())).exists();
+
+        service.deleteImage(project.id(), gallery.id());
+        assertThat(service.media(gallery.storageKey())).isNull();
+        assertThat(mediaDir.resolve(gallery.storageKey())).doesNotExist();
+
+        service.deleteProject(project.id());
+        assertThat(service.media(updatedCover.storageKey())).isNull();
+        assertThat(mediaDir.resolve(updatedCover.storageKey())).doesNotExist();
+    }
+
     private PortfolioProjectService service() {
+        return service(tempDir.resolve(UUID.randomUUID().toString()));
+    }
+
+    private PortfolioProjectService service(Path mediaDir) {
         JdbcDataSource dataSource = new JdbcDataSource();
         dataSource.setURL("jdbc:h2:mem:projects-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
         dataSource.setUser("sa");
         return new PortfolioProjectService(
                 new JdbcTemplate(dataSource),
                 new ObjectMapper(),
-                tempDir.resolve(UUID.randomUUID().toString()).toString(),
+                mediaDir.toString(),
                 5 * 1024 * 1024
         );
     }

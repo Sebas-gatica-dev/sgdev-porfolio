@@ -28,6 +28,7 @@ import javax.imageio.ImageIO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,6 +78,78 @@ public class PortfolioProjectService {
     public List<PortfolioProject> listAdmin() {
         ensureSchema();
         return loadProjects("ORDER BY CASE status WHEN 'draft' THEN 0 WHEN 'published' THEN 1 ELSE 2 END, sort_order ASC, updated_at DESC");
+    }
+
+    /**
+     * Seed del proyecto inicial ArgentiCommerce.
+     *
+     * <p>Solo inserta cuando {@code portfolio_projects} está vacía. Si existe cualquier fila no
+     * inserta ni modifica nada. La captura del duplicado deja la operación idempotente ante
+     * arranques concurrentes sin romper el inicio del backend.</p>
+     *
+     * @return {@code true} si insertó el proyecto en esta ejecución
+     */
+    @Transactional
+    public boolean seedArgentiCommerceIfEmpty() {
+        ensureSchema();
+        Integer total = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM portfolio_projects",
+                Integer.class
+        );
+        if (total != null && total > 0) {
+            return false;
+        }
+
+        String techStackJson = writeTechStack(List.of(
+                "Next.js",
+                "TypeScript",
+                "Spring Boot",
+                "PostgreSQL",
+                "Flyway",
+                "Docker",
+                "Nginx"
+        ));
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO portfolio_projects (
+                        id, slug, title, summary, description_md, live_url, repository_url, infra_app_slug,
+                        tech_stack_json, status, featured, sort_order, created_at, updated_at, published_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """,
+                    UUID.randomUUID().toString(),
+                    "argenticommerce",
+                    "ArgentiCommerce",
+                    "SaaS multi-tenant de ecommerce con RBAC, catalogo, checkout con webhooks, feature flags y despliegue con Terraform en GCP.",
+                    """
+                    ## ArgentiCommerce
+
+                    Plataforma SaaS multi-tenant para comercio electronico: cada tienda opera con su propio catalogo, dominio y configuracion sobre una misma aplicacion.
+
+                    ### Que incluye
+                    - **Multi-tenant** con aislamiento de datos por tienda y onboarding automatizado.
+                    - **RBAC** con roles de administrador, operador y cliente.
+                    - **Catalogo** con variantes, precios, stock y busqueda.
+                    - **Checkout** con pasarela de pagos, webhooks y reconciliacion de ordenes.
+                    - **Feature flags** para habilitar funciones por tienda sin desplegar.
+                    - **Infraestructura como codigo** con Terraform sobre Google Cloud Platform.
+
+                    ### Operacion
+                    Frontend Next.js con TypeScript, API Spring Boot, PostgreSQL con migraciones Flyway y contenedores Docker detras de Nginx.
+
+                    Tienda demo: **Mateando**.
+                    """,
+                    "/argenticommerce/",
+                    "https://github.com/Sebas-gatica-dev/Argenticommerce",
+                    "argenticommerce",
+                    techStackJson,
+                    "published",
+                    true,
+                    10
+            );
+            return true;
+        } catch (DataIntegrityViolationException conflict) {
+            return false;
+        }
     }
 
     @Transactional

@@ -7,6 +7,9 @@ export type StaticRoute =
   | '/demo'
   | '/proyectos'
   | '/contacto'
+  | '/login'
+  | '/admin'
+  | '/admin/login'
 
 export type Route = StaticRoute | `/proyectos/${string}`
 
@@ -21,6 +24,9 @@ export const routes: StaticRoute[] = [
   '/demo',
   '/proyectos',
   '/contacto',
+  '/login',
+  '/admin',
+  '/admin/login',
 ]
 
 export function resolveRoute(pathname: string): Route {
@@ -96,6 +102,15 @@ export function getPageTitle(route: Route) {
   }
   if (route === '/contacto') {
     return 'Contacto'
+  }
+  if (route === '/login') {
+    return 'Login'
+  }
+  if (route === '/admin') {
+    return 'Administración'
+  }
+  if (route === '/admin/login') {
+    return 'Ingreso administración'
   }
   if (route === '/proyectos') {
     return 'Proyectos'

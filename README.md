@@ -39,6 +39,10 @@ El puente usa 4096 tokens de contexto, instrucciones compactas, hasta 3 intercam
 
 El modelo pequeño puede equivocarse en preguntas abiertas; no se le permite escribir directamente reservas ni inventar confirmaciones. Ver `docs/validacion-qwen-produccion.md` para la evaluación de modelos y la validación del despliegue.
 
+## Administración de proyectos
+
+El panel se abre en `/portfolio/admin/login` y permite editar proyectos, portadas y galerías. El backend autentica la sesión y recibe las credenciales mediante variables de entorno. La preparación local y las variables están en [Operación local y Docker](docs/operacion-local-y-docker.md#administración-de-proyectos).
+
 ## Runtime ADK-aligned y prompt modular
 
 > Referencia histórica de la arquitectura anterior. Las referencias a OpenAI, GPT y cuotas de las secciones siguientes describen código heredado deshabilitado. La configuración vigente es la sección «Demos con Qwen local» de este documento.
@@ -1173,7 +1177,7 @@ PORTFOLIO_IP_TOKEN_LIMIT_CHAT_COST=10
 PORTFOLIO_IP_TOKEN_LIMIT_VOICE_COST=10
 PORTFOLIO_IP_PROMPT_LIMIT_VOICE_SESSION_SECONDS=120
 PORTFOLIO_IP_TOKEN_LIMIT_MAX_VOICE_SECONDS=300
-PORTFOLIO_USAGE_ADMIN_TOKEN=change-me-admin-token
+PORTFOLIO_USAGE_ADMIN_TOKEN=
 PORTFOLIO_DB_URL=jdbc:h2:file:./data/portfolio-limits
 ```
 
