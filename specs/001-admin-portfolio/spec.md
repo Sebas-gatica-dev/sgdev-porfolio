@@ -53,11 +53,11 @@ La tabla la actualiza el Coordinator al cierre, con el reporte del Reviewer; el 
 
 | ID | Estado | Evidencia |
 | --- | --- | --- |
-| RF-01 | Pendiente | — |
-| RF-02 | Pendiente | — |
-| RF-03 | Pendiente | — |
-| RF-04 | Pendiente | — |
-| RF-05 | Pendiente | — |
-| RF-06 | Pendiente | — |
-| RF-07 | Pendiente | — |
-| RF-08 | Pendiente | — |
+| RF-01 | Verificada | Pruebas locales y de producción. [Evidencia de pruebas](testing.md). |
+| RF-02 | Verificada | Pruebas de la unidad y smoke de integración. [Evidencia de pruebas](testing.md). |
+| RF-03 | Verificada | Pruebas de la unidad y smoke de integración. [Evidencia de pruebas](testing.md). |
+| RF-04 | Verificada | Pruebas de la unidad y smoke de integración. [Evidencia de pruebas](testing.md). |
+| RF-05 | Verificada | Pruebas locales y de producción. [Evidencia de pruebas](testing.md). |
+| RF-06 | Verificada | Pruebas locales y de producción. [Evidencia de pruebas](testing.md). |
+| RF-07 | Verificada | Pruebas de la unidad y smoke de integración. [Evidencia de pruebas](testing.md). |
+| RF-08 | Verificada | Pruebas locales y de producción. [Evidencia de pruebas](testing.md). |

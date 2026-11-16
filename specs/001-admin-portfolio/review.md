@@ -1,13 +1,15 @@
 # Revisión
 
-**Reviewer** Fase de revisión de spec/plan
-**Veredicto de implementación** No emitido: la implementación aún no está integrada ni verificada en la VPS.
+**Reviewer** Cierre de la implementación en local y VPS
+**Veredicto de implementación** APROBADO para e33698f.
 
 Contrasta [spec.md](spec.md) con [testing.md](testing.md) y el resultado integrado en el repositorio, la VPS y los artefactos de CI. No se emite aprobación hasta que cada RF tenga evidencia reproducible y el despliegue haya sido verificado.
 
 | Hallazgo | Requisito y ubicación | Reproducción e impacto | Corrección y comprobación |
 | --- | --- | --- | --- |
-| _Los bloqueantes de spec/plan fueron resueltos en esta revisión. La tabla de implementación se completará con T-09._ | — | — | — |
+| Variantes de la ruta eludían el filtro por cadena. | RF-02, filtro de proyectos | Segmentos codificados o con parámetros de matriz. | El filtro usa PathPattern. Pasaron las regresiones y el smoke HTTP. |
+| Token de respaldo rechazado con el principal vacío. | RF-02, autorizador | El entorno traía el principal definido como cadena vacía. | La selección se hace en Java. Se verificaron principal, fallback, placeholder y tokens efectivos en la VPS. |
+| El proxy interno perdía el esquema HTTPS. | RF-01, gateway Nginx | La aplicación recibía HTTP del proxy interno. | Se conserva HTTPS del proxy exterior. Chrome comprobó Secure en la VPS. |
 
 ## Resolución de bloqueantes de spec/plan
 
@@ -40,23 +42,23 @@ Contrasta [spec.md](spec.md) con [testing.md](testing.md) y el resultado integra
 
 ## Criterios de revisión de implementación
 
-- [ ] RF-01 a RF-08 tienen fila en `testing.md` con resultado distinto de `Pendiente` y evidencia sin secretos.
-- [ ] `npm run build`, `npm run build:api` y `node scripts/mvnw.mjs test` (o `./mvnw test`) pasan en la revisión final.
-- [ ] CI de `main` en verde y SHA desplegado identificado en la VPS.
-- [ ] `GET /portfolio/api/auth/session` responde `200` anónimo con `{authenticated:false,username:null}`; el POST de login autentica y la cookie es `SESSION`, `HttpOnly`, `SameSite=Lax`, `Path=/` y `Secure` bajo HTTPS.
-- [ ] `/portfolio/admin` y `/portfolio/api/admin/projects/**` rechazan sin sesión y aceptan con sesión; el token admin y el fallback de usage funcionan si están configurados; token vacío o `change-me-admin-token` no autoriza.
-- [ ] `/api/admin/usage/**` conserva su token y no se ve afectado por el filtro de proyectos.
-- [ ] El backend arranca sin `PORTFOLIO_ADMIN_PASSWORD` ni `PORTFOLIO_ADMIN_PASSWORD_HASH`, y en ese caso el login falla con `401` uniforme.
-- [ ] No hay contraseña, hash real, token ni `.env` en el diff, commits, specs, logs ni evidencia.
-- [ ] El API público y `/portfolio/proyectos` devuelven exactamente ArgentiCommerce con `liveUrl:"/argenticommerce/"`, portada y galería; el enlace “Ver en producción” resuelve `200` y no se modificó el proyecto.
-- [ ] El seed solo inserta con tabla vacía, no duplica ni sobrescribe, es atómico y no se presenta como migración.
-- [ ] El borrado de imagen elimina el registro y el archivo físico; la persistencia se verifica con una galería descartable y sin tocar la portada real.
-- [ ] Las cuatro demos, el health/blueprint y un POST SSE breve no presentan regresiones.
-- [ ] La tabla “Estado de cierre” de `spec.md` la actualiza el Coordinator con el reporte del Reviewer, no por anticipado.
+- [x] RF-01 a RF-08 tienen fila en `testing.md` con resultado distinto de `Pendiente` y evidencia sin secretos.
+- [x] `npm run build`, `npm run build:api` y `node scripts/mvnw.mjs test` (o `./mvnw test`) pasan en la revisión final.
+- [x] CI de `main` en verde y SHA desplegado identificado en la VPS.
+- [x] `GET /portfolio/api/auth/session` responde `200` anónimo con `{authenticated:false,username:null}`; el POST de login autentica y la cookie es `SESSION`, `HttpOnly`, `SameSite=Lax`, `Path=/` y `Secure` bajo HTTPS.
+- [x] `/portfolio/admin` y `/portfolio/api/admin/projects/**` rechazan sin sesión y aceptan con sesión; el token admin y el fallback de usage funcionan si están configurados; token vacío o `change-me-admin-token` no autoriza.
+- [x] `/api/admin/usage/**` conserva su token y no se ve afectado por el filtro de proyectos.
+- [x] El backend arranca sin `PORTFOLIO_ADMIN_PASSWORD` ni `PORTFOLIO_ADMIN_PASSWORD_HASH`, y en ese caso el login falla con `401` uniforme.
+- [x] No hay contraseña, hash real, token ni `.env` en el diff, commits, specs, logs ni evidencia.
+- [x] El API público y `/portfolio/proyectos` devuelven exactamente ArgentiCommerce con `liveUrl:"/argenticommerce/"`, portada y galería; el enlace “Ver en producción” resuelve `200` y no se modificó el proyecto.
+- [x] El seed solo inserta con tabla vacía, no duplica ni sobrescribe, es atómico y no se presenta como migración.
+- [x] El borrado de imagen elimina el registro y el archivo físico; la persistencia se verifica con una galería descartable y sin tocar la portada real.
+- [x] Las cuatro demos, el health/blueprint y un POST SSE breve no presentan regresiones.
+- [x] La tabla “Estado de cierre” de `spec.md` la actualiza el Coordinator con el reporte del Reviewer, no por anticipado.
 
 ## Cierre
 
 - Bloqueantes de especificación: B-01 a B-09 resueltos; no quedan bloqueantes de especificación.
 - Observaciones O-01 a O-08: resueltas o convertidas en restricciones verificables.
-- Veredicto de implementación: pendiente de T-09, con evidencia de T-08.
-- Riesgo residual: si SgInfra regenera el entorno del backend en cada despliegue, `PORTFOLIO_ADMIN_PASSWORD` debe reponerse y verificarse después del deploy. No se registra el valor.
+- Qwen3.5 9B revisó la corrección de autorización y la evidencia de cierre. Los resultados locales y de producción están en [testing.md](testing.md).
+- El hash BCrypt quedó en la configuración privada persistente de SgInfra. El backend lo recibió en el despliegue y el login HTTPS pasó.
